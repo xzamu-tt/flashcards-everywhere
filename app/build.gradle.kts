@@ -28,12 +28,12 @@ android {
             applicationIdSuffix = ".lite"
             versionNameSuffix = "-lite"
             buildConfigField("boolean", "FULL_FLAVOR", "false")
-            // No AccessibilityService, no system-wide overlays.
         }
         create("full") {
             dimension = "tier"
             buildConfigField("boolean", "FULL_FLAVOR", "true")
-            // All surfaces enabled. Distributed via F-Droid / GitHub Releases.
+            // Reserved for M7 enforcement features (app blocks / lockout mode).
+            // Distributed via F-Droid / GitHub Releases.
         }
     }
 

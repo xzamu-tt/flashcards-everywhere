@@ -31,7 +31,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.flashcardseverywhere.data.anki.AnkiBridge
 import com.flashcardseverywhere.data.anki.AnkiPermissionHelper
-import com.flashcardseverywhere.surface.overlay.CardOverlayAccessibilityServiceClass
 import com.flashcardseverywhere.util.PermissionChecks
 
 /**
@@ -42,13 +41,12 @@ import com.flashcardseverywhere.util.PermissionChecks
 @Composable
 fun OnboardingScreen(
     bridge: AnkiBridge,
-    isFullFlavor: Boolean,
     onDone: () -> Unit,
 ) {
     val ctx = LocalContext.current
     var refreshTick by remember { mutableStateOf(0) }
 
-    val steps = remember(refreshTick, isFullFlavor) {
+    val steps = remember(refreshTick) {
         buildList {
             add(
                 Step(
@@ -101,28 +99,6 @@ fun OnboardingScreen(
                     action = { PermissionChecks.openUsageAccessSettings(ctx) }
                 )
             )
-            if (isFullFlavor) {
-                add(
-                    Step(
-                        title = "Display over other apps",
-                        body = "Required to draw a card on top of any app you open.",
-                        granted = PermissionChecks.canDrawOverlays(ctx),
-                        cta = "Open settings",
-                        action = { PermissionChecks.openOverlaySettings(ctx) }
-                    )
-                )
-                add(
-                    Step(
-                        title = "Accessibility service",
-                        body = "Lets the app detect when you open another app and surface a card. Used solely for flashcard delivery.",
-                        granted = PermissionChecks.isAccessibilityServiceEnabled(
-                            ctx, CardOverlayAccessibilityServiceClass
-                        ),
-                        cta = "Open settings",
-                        action = { PermissionChecks.openAccessibilitySettings(ctx) }
-                    )
-                )
-            }
         }
     }
 

@@ -3,8 +3,8 @@
 > Anki, but it reaches you everywhere.
 
 A beautiful Android client for AnkiDroid that pushes your due cards into every
-ambient surface of the phone — notifications, lockscreen, home-screen widgets,
-and (full flavor only) an overlay on top of every app you open.
+ambient surface of the phone — notifications, lockscreen, and home-screen
+widgets.
 
 The goal: convert hours of passive phone usage into hours of passive review.
 **AnkiDroid stays the source of truth.** This app never re-implements the
@@ -18,9 +18,9 @@ AnkiWeb.
 
 Pre-alpha. Project skeleton + foundational modules are scaffolded; the visual
 identity (Apple-minimal reviewer) and the AnkiDroid bridge are real and runnable.
-The ambient surfaces (notification, widget, lockscreen, accessibility overlay)
-are wired into the manifest with working stubs and need their behaviour fleshed
-out per the milestone plan.
+The ambient surfaces (notification, widget, lockscreen) are wired into the
+manifest with working stubs and need their behaviour fleshed out per the
+milestone plan.
 
 | Milestone | Description                                       | Status |
 |-----------|---------------------------------------------------|--------|
@@ -31,7 +31,7 @@ out per the milestone plan.
 | M3        | Notifications + lockscreen surfaces               | ✅ done — orchestrator, FSI fallback for Android 14+, GradeReceiver |
 | M4        | Glance home-screen widget                         | ✅ done — wired to ReviewSession via Hilt EntryPoint, grade buttons fire `GradeReceiver` |
 | M5        | Pacing engine + onboarding                        | ✅ done — `PacingEngine`, `UsagePulseSource`, `PacingService` ticker, onboarding walkthrough |
-| M6        | AccessibilityService overlay (full flavor)        | ✅ done — Compose-in-Service, `TYPE_ACCESSIBILITY_OVERLAY`, per-app cooldown |
+| M6        | ~~AccessibilityService overlay~~                  | 🚫 dropped — see [Why no AccessibilityService](#why-no-accessibilityservice) |
 | M7        | Enforcement modes (full flavor)                   | ⚪ not started — app block + lockout mode |
 
 ---
@@ -56,11 +56,57 @@ Three options, fully documented in [`docs/BUILD.md`](docs/BUILD.md):
 | Flavor  | Distribution            | Includes                                   |
 |---------|-------------------------|--------------------------------------------|
 | `lite`  | Play Store              | Notifications, widget, lockscreen, UsageStats pacing |
-| `full`  | F-Droid + GitHub Releases | Everything in `lite` PLUS AccessibilityService overlay, app blocks, lockout mode |
+| `full`  | F-Droid + GitHub Releases | Everything in `lite`, plus the upcoming M7 enforcement modes (app blocks, lockout) once those land |
 
-The split is mandatory: Google's Jan 2026 AccessibilityService policy bans
-non-assistive use of the accessibility API, so the "card on every app launch"
-feature cannot ship on the Play Store.
+The split is reserved for M7 enforcement features that will need extra
+permissions Google does not allow on Play Store builds. Today the two flavor
+APKs are nearly identical; install whichever your distribution channel ships.
+
+## Install
+
+> **If you sideload the APK by tapping it in a browser or messenger, recent
+> Android builds will show "App blocked to protect your device. This app can
+> request to access to sensitive data."** That dialog is Google Play Protect's
+> Enhanced Fraud Protection. It only fires for the legacy non-session install
+> path. Use any of the routes below instead — they all use the modern
+> `PackageInstaller` Session API and bypass the warning.
+
+In rough order of recommendation:
+
+1. **[Obtainium](https://github.com/ImranR98/Obtainium)** *(recommended)* —
+   point it at this repo's GitHub Releases and it will install + auto-update
+   straight from there. Best UX for non-Play sideloaders.
+2. **F-Droid client** — once we publish to F-Droid, install through the F-Droid
+   app, not by downloading the APK from the F-Droid website and tapping it.
+3. **`adb install` from a computer** — for developers and CI:
+   ```bash
+   adb install -r -t app/build/outputs/apk/fullDebug/app-full-debug.apk
+   ```
+   `-t` allows test/debug APKs; `-r` reinstalls over an existing copy.
+4. **[Split APKs Installer (SAI)](https://github.com/Aefyr/SAI)** or
+   **[InstallWithOptions](https://github.com/zacharee/InstallWithOptions)** —
+   third-party session installers if you want a tap-to-install flow without
+   Obtainium.
+
+### Why no AccessibilityService
+
+The full flavor used to ship a `CardOverlayAccessibilityService` that detected
+foreground app changes via `TYPE_WINDOW_STATE_CHANGED` and drew a card on top
+using `TYPE_ACCESSIBILITY_OVERLAY`. We dropped it for two converging reasons:
+
+- **Google Play Protect's Enhanced Fraud Protection** auto-blocks any sideload
+  whose manifest declares `BIND_ACCESSIBILITY_SERVICE`,
+  `BIND_NOTIFICATION_LISTENER_SERVICE`, `READ_SMS`, or `RECEIVE_SMS`. The
+  protection has been rolled out to ~185 markets and 2.8B devices through
+  2025; users could not install the full flavor at all.
+- **Google's Jan 2026 AccessibilityService policy** bans non-assistive uses of
+  the API on Play Store, and Android 13+'s Restricted Settings already
+  prevented users from enabling such a service post-install without an extra
+  manual unlock dance.
+
+The "cards on every app launch" surface is gone. The other surfaces
+(notification, lockscreen, widget, in-app reviewer) cover the same use case
+with permissions that no fraud filter touches.
 
 ### Running against AnkiDroid
 
@@ -79,9 +125,9 @@ visibility hides AnkiDroid entirely on Android 11+.
 ```
 FlashcardsEverywhere/
 ├── app/
-│   ├── src/main/             # Common code: data layer, UI, services
-│   ├── src/full/             # Full-flavor only: AccessibilityService overlay
-│   ├── src/lite/             # Lite-flavor only: stubs that match full's package shape
+│   ├── src/main/             # All code today (data layer, UI, services)
+│   ├── src/full/             # Reserved for M7 enforcement features
+│   ├── src/lite/             # Reserved for Play-Store-safe overrides
 │   └── build.gradle.kts
 ├── docs/
 │   ├── ANKI_CONTRACT_REFERENCE.md     # Ground-truth FlashCardsContract spec
@@ -104,7 +150,6 @@ FlashcardsEverywhere/
 - `surface/notification/` — `NotificationOrchestrator`, `GradeReceiver`.
 - `surface/lockscreen/` — `LockscreenReviewerActivity`.
 - `surface/widget/` — Glance `CardWidget` + receiver.
-- `surface/overlay/` — `CardOverlayAccessibilityService` (full flavor only).
 - `service/pacing/` — `PacingService` (foreground service) + `BootReceiver`.
 
 ---
@@ -115,12 +160,11 @@ FlashcardsEverywhere/
 `FlashCardsContract` ContentProvider. `ReviewSession` (singleton) holds the
 current queue of due cards in memory and exposes a `StateFlow<ReviewState>`
 that every surface — in-app reviewer, lockscreen activity, notification,
-widget, accessibility overlay — observes. `PacingService` runs in the
-foreground, watches `UsageStatsManager` (lite) or accessibility events (full),
-and asks `NotificationOrchestrator` to surface cards on the user's chosen
-schedule. `GradeReceiver` lets any surface answer a card via PendingIntent
-without opening the app. AnkiDroid handles FSRS scheduling and AnkiWeb sync —
-we never duplicate either.
+widget — observes. `PacingService` runs in the foreground, watches
+`UsageStatsManager`, and asks `NotificationOrchestrator` to surface cards on
+the user's chosen schedule. `GradeReceiver` lets any surface answer a card via
+PendingIntent without opening the app. AnkiDroid handles FSRS scheduling and
+AnkiWeb sync — we never duplicate either.
 
 ---
 

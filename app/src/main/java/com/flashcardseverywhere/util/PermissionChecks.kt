@@ -74,34 +74,6 @@ object PermissionChecks {
         ctx.startActivity(i)
     }
 
-    // ── System overlay (SYSTEM_ALERT_WINDOW) ───────────────────────────────
-    fun canDrawOverlays(ctx: Context): Boolean = Settings.canDrawOverlays(ctx)
-
-    fun openOverlaySettings(ctx: Context) {
-        val i = Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:${ctx.packageName}"),
-        ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-        ctx.startActivity(i)
-    }
-
-    // ── Accessibility service (full flavor only) ───────────────────────────
-    fun isAccessibilityServiceEnabled(ctx: Context, serviceClass: Class<*>): Boolean {
-        val expected = "${ctx.packageName}/${serviceClass.canonicalName}"
-        val enabled = Settings.Secure.getString(
-            ctx.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-        ).orEmpty()
-        return enabled.split(":").any { it.equals(expected, ignoreCase = true) }
-    }
-
-    fun openAccessibilitySettings(ctx: Context) {
-        val i = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        ctx.startActivity(i)
-    }
-
     // ── Battery optimisation (so the foreground service isn't killed) ──────
     fun openBatteryOptimisationSettings(ctx: Context) {
         val i = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {

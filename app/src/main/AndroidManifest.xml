@@ -25,12 +25,6 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <!-- ============================================================
-         Overlay (used by full flavor; declared here so the lite
-         flavor permission set is a strict subset).
-         ============================================================ -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-
-    <!-- ============================================================
          Package visibility (Android 11+)
          Without this, ContentResolver returns null for any
          FlashCardsContract URI even when the permission is granted.

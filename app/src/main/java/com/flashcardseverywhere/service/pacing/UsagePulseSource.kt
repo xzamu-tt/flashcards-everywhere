@@ -15,10 +15,7 @@ import javax.inject.Singleton
 /**
  * Counts foreground / interactive screen time using `UsageStatsManager`.
  *
- * Used in BOTH flavors. The full flavor *also* gets real-time foreground app
- * change events from [com.flashcardseverywhere.surface.overlay.CardOverlayAccessibilityService],
- * but the screen-time totals here are still authoritative for the daily goal
- * and pacing tickers.
+ * Authoritative source for the daily goal and pacing tickers in both flavors.
  *
  * Reference: docs/ANDROID_SURFACES_REFERENCE.md §5.
  */

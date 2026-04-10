@@ -104,9 +104,11 @@ jobs:
           body: |
             ## Flashcards Everywhere ${{ github.ref_name }}
 
-            **APK downloads** (debug, unsigned — install via "Unknown sources"):
+            **APK downloads** (debug, unsigned).
+
+            > ⚠️ Do **not** install by tapping the APK in a browser/messenger — Google Play Protect's Enhanced Fraud Protection may block sideloads from those sources. Install via [Obtainium](https://github.com/ImranR98/Obtainium), the F-Droid client, or `adb install`. See the [README install section](https://github.com/${{ github.repository }}#install) for details.
 
             - `flashcards-everywhere-${{ github.ref_name }}-lite.apk` — Play Store flavor (notifications + widget + lockscreen + UsageStats pacing)
-            - `flashcards-everywhere-${{ github.ref_name }}-full.apk` — F-Droid flavor (everything in lite + AccessibilityService overlay + enforcement)
+            - `flashcards-everywhere-${{ github.ref_name }}-full.apk` — F-Droid + GitHub Releases flavor (functionally equivalent to lite today; reserved for M7 enforcement features)
 
             See [README](https://github.com/${{ github.repository }}#status) for what's working in this build.

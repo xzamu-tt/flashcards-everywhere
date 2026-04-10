@@ -16,11 +16,6 @@
     <string name="perm_usage_body">Lets us count screen-on time and pace cards toward your daily goal. Stays on-device.</string>
     <string name="perm_fullscreen_title">Lockscreen cards</string>
     <string name="perm_fullscreen_body">Lets a card appear above the lockscreen so you can review without unlocking.</string>
-    <string name="perm_overlay_title">Display over other apps</string>
-    <string name="perm_overlay_body">Required to show a card on top of any app you open.</string>
-    <string name="perm_a11y_title">Accessibility service</string>
-    <string name="perm_a11y_body">Required to detect when you open an app and surface the overlay instantly. Used solely for flashcard delivery.</string>
-
     <!-- Reviewer -->
     <string name="grade_again">Again</string>
     <string name="grade_hard">Hard</string>
@@ -39,10 +34,6 @@
     <string name="notif_channel_pacing">Pacing reminders</string>
     <string name="notif_persistent_title">%1$d cards due</string>
     <string name="notif_persistent_body">Streak: %1$d days · Goal: %2$d / %3$d</string>
-
-    <!-- Accessibility service -->
-    <string name="accessibility_service_label">Flashcards Everywhere overlay</string>
-    <string name="accessibility_service_description">Detects which app is in the foreground so a flashcard can be drawn on top of it. Only used for flashcard delivery; never reads or transmits screen content.</string>
 
     <!-- Settings -->
     <string name="settings_daily_goal">Daily goal (cards)</string>

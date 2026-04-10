@@ -23,11 +23,10 @@ import javax.inject.Inject
 
 /**
  * Foreground service that:
- *   - Tracks screen-on time via `UsageStatsManager` (lite) or via the
- *     full-flavor AccessibilityService bus.
+ *   - Tracks screen-on time via `UsageStatsManager`.
  *   - Every N minutes of active use, asks ReviewSession for the next card and
  *     hands it to NotificationOrchestrator.
- *   - Escalates if the user ignores cards (notification → lockscreen → overlay).
+ *   - Escalates if the user ignores cards (notification → lockscreen).
  *
  * v0 implementation: ships the foreground notification + a placeholder ticker.
  * Real pacing logic lands in M5.
