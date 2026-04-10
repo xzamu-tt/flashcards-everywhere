@@ -61,7 +61,6 @@ class LockscreenReviewerActivity : ComponentActivity() {
                             // Optional: finish after one card so we don't trap the user.
                         },
                         onReveal = vm::reveal,
-                        onRequestPermission = { /* no-op on lockscreen */ },
                         onRefresh = vm::refresh,
                     )
                 }

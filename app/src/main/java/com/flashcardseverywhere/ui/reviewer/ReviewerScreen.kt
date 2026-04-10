@@ -13,9 +13,10 @@
  */
 package com.flashcardseverywhere.ui.reviewer
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -44,14 +45,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.flashcardseverywhere.R
 import com.flashcardseverywhere.data.anki.DueCard
 import com.flashcardseverywhere.data.anki.Ease
+import com.flashcardseverywhere.data.anki.FlashCardsContract
 import com.flashcardseverywhere.data.anki.ReviewState
 import com.flashcardseverywhere.ui.theme.FlashcardsTheme
 
@@ -60,9 +63,25 @@ fun ReviewerScreen(
     state: ReviewerUiState,
     onGrade: (Ease) -> Unit,
     onReveal: () -> Unit,
-    onRequestPermission: (Activity) -> Unit,
     onRefresh: () -> Unit,
 ) {
+    // Re-check permission / installed-state when the user returns from
+    // system settings or from installing AnkiDroid.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { onRefresh() }
+
+    // Modern Activity Result API for the AnkiDroid custom dangerous
+    // permission. The legacy ActivityCompat.requestPermissions path was
+    // silently dropping the result because MainActivity never overrode
+    // onRequestPermissionsResult.
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { _ ->
+        // Whatever the user picked, re-evaluate the session state. If they
+        // granted, we'll transition to Card; if they denied, we stay on
+        // PermissionDenied (with the button still actionable).
+        onRefresh()
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -83,7 +102,11 @@ fun ReviewerScreen(
                 when (current) {
                     is ReviewState.Loading -> EmptyMessage("")
                     is ReviewState.AnkiDroidNotInstalled -> AnkiNotInstalled()
-                    is ReviewState.PermissionDenied -> PermissionDenied(onRequestPermission)
+                    is ReviewState.PermissionDenied -> PermissionDenied(
+                        onGrant = {
+                            permissionLauncher.launch(FlashCardsContract.READ_WRITE_PERMISSION)
+                        },
+                    )
                     is ReviewState.NoDueCards -> NoDueCards(onRefresh)
                     is ReviewState.Error -> EmptyMessage(current.message)
                     is ReviewState.Card -> CardSurface(
@@ -285,8 +308,7 @@ private fun NoDueCards(onRefresh: () -> Unit) {
 }
 
 @Composable
-private fun PermissionDenied(onRequestPermission: (Activity) -> Unit) {
-    val ctx = LocalContext.current
+private fun PermissionDenied(onGrant: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
@@ -301,7 +323,7 @@ private fun PermissionDenied(onRequestPermission: (Activity) -> Unit) {
         Spacer(Modifier.height(24.dp))
         QuietButton(
             label = "Grant access",
-            onClick = { (ctx as? Activity)?.let(onRequestPermission) },
+            onClick = onGrant,
         )
     }
 }
@@ -338,13 +360,6 @@ private fun AnkiNotInstalled() {
 private fun stringRes(id: Int): String =
     androidx.compose.ui.res.stringResource(id)
 
-/** Naive HTML → text fallback used until WebView rendering lands. */
-private fun String.htmlToPlainText(): String =
-    androidx.core.text.HtmlCompat
-        .fromHtml(this, androidx.core.text.HtmlCompat.FROM_HTML_MODE_COMPACT)
-        .toString()
-        .trim()
-
 @Preview
 @Composable
 private fun PreviewCard() {
@@ -367,7 +382,6 @@ private fun PreviewCard() {
             ),
             onGrade = {},
             onReveal = {},
-            onRequestPermission = {},
             onRefresh = {},
         )
     }

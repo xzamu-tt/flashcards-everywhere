@@ -4,17 +4,17 @@
  */
 package com.flashcardseverywhere.ui.reviewer
 
-import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.flashcardseverywhere.data.anki.AnkiPermissionHelper
 import com.flashcardseverywhere.data.anki.Ease
 import com.flashcardseverywhere.data.anki.ReviewState
+import com.flashcardseverywhere.data.prefs.SettingsRepository
 import com.flashcardseverywhere.domain.ReviewSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
@@ -23,6 +23,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ReviewerViewModel @Inject constructor(
     private val session: ReviewSession,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
 
     private val _revealed = MutableStateFlow(false)
@@ -42,7 +43,8 @@ class ReviewerViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _revealed.value = false
-            session.refresh()
+            val deckId = settings.selectedDeckId.first()
+            session.refresh(deckId = deckId)
         }
     }
 
@@ -53,11 +55,6 @@ class ReviewerViewModel @Inject constructor(
             session.grade(ease)
             _revealed.value = false
         }
-    }
-
-    /** Called from Compose; only meaningful when invoked from an Activity context. */
-    fun requestPermissionFromActivity(activity: Activity) {
-        AnkiPermissionHelper.request(activity)
     }
 }
 

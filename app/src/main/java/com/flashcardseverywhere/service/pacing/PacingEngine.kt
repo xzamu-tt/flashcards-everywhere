@@ -66,10 +66,13 @@ class PacingEngine @Inject constructor(
     }
 
     private suspend fun isInsideQuietHours(): Boolean {
-        // TODO: read quiet-hours window from settings (placeholder: 23:00-07:00)
-        val cal = Calendar.getInstance()
-        val hour = cal.get(Calendar.HOUR_OF_DAY)
-        return hour >= 23 || hour < 7
+        val start = settings.quietHoursStart.first()
+        val end = settings.quietHoursEnd.first()
+        if (start == end) return false  // disabled when collapsed
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        // Window may wrap around midnight (e.g. 23..7 → quiet at 23,0,1,...,6).
+        return if (start < end) hour in start until end
+               else hour >= start || hour < end
     }
 
     private fun currentEscalationLevel(): EscalationLevel {

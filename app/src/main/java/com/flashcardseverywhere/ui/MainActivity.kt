@@ -10,13 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.flashcardseverywhere.ui.reviewer.ReviewerScreen
-import com.flashcardseverywhere.ui.reviewer.ReviewerViewModel
 import com.flashcardseverywhere.ui.theme.FlashcardsTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -28,21 +22,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             FlashcardsTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    Root()
+                    AppNavHost()
                 }
             }
         }
     }
-}
-
-@Composable
-private fun Root(vm: ReviewerViewModel = hiltViewModel()) {
-    val state by vm.state.collectAsStateWithLifecycle()
-    ReviewerScreen(
-        state = state,
-        onGrade = vm::grade,
-        onReveal = vm::reveal,
-        onRequestPermission = vm::requestPermissionFromActivity,
-        onRefresh = vm::refresh,
-    )
 }

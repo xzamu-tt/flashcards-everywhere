@@ -1,10 +1,17 @@
 /*
  * Copyright (C) 2026 Flashcards Everywhere contributors
  * Licensed under the GNU GPL v3+.
+ *
+ * Per-permission walkthrough. Each row is honest about what the permission
+ * does and why we need it. Nothing is granted automatically; every step needs
+ * an explicit user tap. The "Continue" button persists `onboardingDone = true`
+ * and routes the user to the reviewer.
  */
 package com.flashcardseverywhere.ui.onboarding
 
-import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,29 +29,59 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.flashcardseverywhere.data.anki.AnkiBridge
-import com.flashcardseverywhere.data.anki.AnkiPermissionHelper
+import com.flashcardseverywhere.data.anki.FlashCardsContract
 import com.flashcardseverywhere.util.PermissionChecks
 
 /**
- * Per-permission walkthrough. Each row is honest about what the permission
- * does and why we need it. Nothing is granted automatically; every step needs
- * an explicit user tap.
+ * NavHost-friendly entry point. Owns the ViewModel, the permission launchers,
+ * and the bridge state, then hands a fully-stateless view-model down to
+ * [OnboardingScreen].
  */
+@Composable
+fun OnboardingRoute(
+    onDone: () -> Unit,
+    vm: OnboardingViewModel = hiltViewModel(),
+) {
+    OnboardingScreen(
+        bridge = vm.bridge,
+        onMarkDone = {
+            vm.markDone()
+            onDone()
+        },
+    )
+}
+
 @Composable
 fun OnboardingScreen(
     bridge: AnkiBridge,
-    onDone: () -> Unit,
+    onMarkDone: () -> Unit,
 ) {
     val ctx = LocalContext.current
-    var refreshTick by remember { mutableStateOf(0) }
+    var refreshTick by remember { mutableIntStateOf(0) }
+
+    // Re-evaluate when the user comes back from system Settings deep-links.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refreshTick++ }
+
+    // Modern launcher for the AnkiDroid custom dangerous permission.
+    val ankiPermLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { _ -> refreshTick++ }
+
+    // Modern launcher for POST_NOTIFICATIONS (Android 13+).
+    val notifPermLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { _ -> refreshTick++ }
 
     val steps = remember(refreshTick) {
         buildList {
@@ -60,7 +97,7 @@ fun OnboardingScreen(
                             android.net.Uri.parse("https://f-droid.org/packages/com.ichi2.anki/"),
                         ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
                         runCatching { ctx.startActivity(i) }
-                    }
+                    },
                 )
             )
             add(
@@ -69,7 +106,7 @@ fun OnboardingScreen(
                     body = "Lets the app pull due cards and write your answers back. Stays on-device.",
                     granted = bridge.hasPermission(),
                     cta = "Grant",
-                    action = { (ctx as? Activity)?.let { AnkiPermissionHelper.request(it) } }
+                    action = { ankiPermLauncher.launch(FlashCardsContract.READ_WRITE_PERMISSION) },
                 )
             )
             add(
@@ -77,8 +114,14 @@ fun OnboardingScreen(
                     title = "Notifications",
                     body = "Cards arrive as notifications you can grade in-place.",
                     granted = PermissionChecks.hasNotificationPermission(ctx),
-                    cta = "Open settings",
-                    action = { PermissionChecks.openAppNotificationSettings(ctx) }
+                    cta = "Grant",
+                    action = {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            notifPermLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            PermissionChecks.openAppNotificationSettings(ctx)
+                        }
+                    },
                 )
             )
             add(
@@ -87,7 +130,7 @@ fun OnboardingScreen(
                     body = "Lets a card appear above the lockscreen so you can review without unlocking.",
                     granted = PermissionChecks.canUseFullScreenIntent(ctx),
                     cta = "Open settings",
-                    action = { PermissionChecks.openFullScreenIntentSettings(ctx) }
+                    action = { PermissionChecks.openFullScreenIntentSettings(ctx) },
                 )
             )
             add(
@@ -96,7 +139,7 @@ fun OnboardingScreen(
                     body = "Counts your screen-on time so cards arrive every 10 minutes of active use.",
                     granted = PermissionChecks.hasUsageAccess(ctx),
                     cta = "Open settings",
-                    action = { PermissionChecks.openUsageAccessSettings(ctx) }
+                    action = { PermissionChecks.openUsageAccessSettings(ctx) },
                 )
             )
         }
@@ -109,11 +152,17 @@ fun OnboardingScreen(
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Skip any step you don't need now — you can grant later from Settings.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(24.dp))
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 96.dp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().weight(1f),
             ) {
                 items(steps) { step ->
                     StepRow(step = step, onTap = {
@@ -123,7 +172,7 @@ fun OnboardingScreen(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            DoneButton(onClick = onDone)
+            DoneButton(onClick = onMarkDone)
         }
     }
 }
@@ -143,9 +192,7 @@ private fun StepRow(step: Step, onTap: () -> Unit) {
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
         shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp, MaterialTheme.colorScheme.outline
-        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -179,9 +226,7 @@ private fun DoneButton(onClick: () -> Unit) {
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
         shape = RoundedCornerShape(14.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp, MaterialTheme.colorScheme.outline
-        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Box(
