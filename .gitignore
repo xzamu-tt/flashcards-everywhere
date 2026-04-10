@@ -11,7 +11,11 @@ captures
 .kotlin/
 *.apk
 *.aab
+# Ignore all keystores by default — but DO commit the stable debug
+# keystore that signs alpha releases. Without that, every CI run signs
+# with a different key and Obtainium updates fail with "Conflict".
 *.keystore
+!/app/debug.keystore
 *.jks
 release/
 keystore.properties

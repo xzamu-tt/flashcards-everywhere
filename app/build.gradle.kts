@@ -21,6 +21,25 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    // Stable debug signing config — committed to the repo so every CI run
+    // produces APKs signed by the same key. Without this, GitHub Actions
+    // generates a fresh ~/.android/debug.keystore on each ephemeral runner,
+    // every release is signed by a different key, and Obtainium / Android
+    // refuses to update the previous install with INSTALL_FAILED_UPDATE_INCOMPATIBLE
+    // (surfaced as "Conflict" in Obtainium).
+    //
+    // The keystore lives at app/debug.keystore and uses the standard
+    // Android debug credentials (alias=androiddebugkey, password=android).
+    // It is NOT a release key — never use it for Play Store distribution.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     flavorDimensions += "tier"
     productFlavors {
         create("lite") {

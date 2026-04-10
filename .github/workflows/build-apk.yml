@@ -104,7 +104,7 @@ jobs:
           body: |
             ## Flashcards Everywhere ${{ github.ref_name }}
 
-            **APK downloads** (debug, unsigned).
+            **APK downloads** (debug-signed with the repo's committed `app/debug.keystore` — stable across releases, so Obtainium can update without uninstalling).
 
             > ⚠️ Do **not** install by tapping the APK in a browser/messenger — Google Play Protect's Enhanced Fraud Protection may block sideloads from those sources. Install via [Obtainium](https://github.com/ImranR98/Obtainium), the F-Droid client, or `adb install`. See the [README install section](https://github.com/${{ github.repository }}#install) for details.
 
