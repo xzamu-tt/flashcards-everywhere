@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Flashcards Everywhere</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Your phone is the deck</string>
+    <string name="onboarding_subtitle">Cards reach you everywhere — notifications, widgets, the lockscreen, every app.</string>
+    <string name="onboarding_continue">Continue</string>
+
+    <!-- Permissions -->
+    <string name="perm_anki_title">Connect to AnkiDroid</string>
+    <string name="perm_anki_body">We read your due cards from AnkiDroid and submit reviews back. AnkiDroid stays in charge of your collection and AnkiWeb sync.</string>
+    <string name="perm_notifications_title">Notifications</string>
+    <string name="perm_notifications_body">We deliver cards through notifications. Without this, the most useful surface is silent.</string>
+    <string name="perm_usage_title">Usage access</string>
+    <string name="perm_usage_body">Lets us count screen-on time and pace cards toward your daily goal. Stays on-device.</string>
+    <string name="perm_fullscreen_title">Lockscreen cards</string>
+    <string name="perm_fullscreen_body">Lets a card appear above the lockscreen so you can review without unlocking.</string>
+    <string name="perm_overlay_title">Display over other apps</string>
+    <string name="perm_overlay_body">Required to show a card on top of any app you open.</string>
+    <string name="perm_a11y_title">Accessibility service</string>
+    <string name="perm_a11y_body">Required to detect when you open an app and surface the overlay instantly. Used solely for flashcard delivery.</string>
+
+    <!-- Reviewer -->
+    <string name="grade_again">Again</string>
+    <string name="grade_hard">Hard</string>
+    <string name="grade_good">Good</string>
+    <string name="grade_easy">Easy</string>
+    <string name="reveal_answer">Reveal</string>
+    <string name="no_due_cards">No cards due. Streak intact.</string>
+    <string name="anki_not_installed">AnkiDroid is not installed on this phone.</string>
+    <string name="anki_install_prompt">Install AnkiDroid</string>
+    <string name="anki_permission_denied">Reviewer needs permission to read AnkiDroid.</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_persistent">Daily progress</string>
+    <string name="notif_channel_due">Due cards</string>
+    <string name="notif_channel_lockscreen">Lockscreen cards</string>
+    <string name="notif_channel_pacing">Pacing reminders</string>
+    <string name="notif_persistent_title">%1$d cards due</string>
+    <string name="notif_persistent_body">Streak: %1$d days · Goal: %2$d / %3$d</string>
+
+    <!-- Accessibility service -->
+    <string name="accessibility_service_label">Flashcards Everywhere overlay</string>
+    <string name="accessibility_service_description">Detects which app is in the foreground so a flashcard can be drawn on top of it. Only used for flashcard delivery; never reads or transmits screen content.</string>
+
+    <!-- Settings -->
+    <string name="settings_daily_goal">Daily goal (cards)</string>
+    <string name="settings_pacing_interval">Pacing interval (minutes)</string>
+    <string name="settings_quiet_hours">Quiet hours</string>
+    <string name="settings_decks">Decks</string>
+    <string name="settings_surfaces">Where cards appear</string>
+    <string name="settings_enforcement">Enforcement</string>
+    <string name="settings_about">About</string>
+</resources>

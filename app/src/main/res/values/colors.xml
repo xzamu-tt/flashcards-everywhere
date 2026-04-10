@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Apple-minimal palette: near-black + off-white + single muted accent.
+         Real values are defined in the Compose theme; these are placeholders
+         for code paths that need an XML color (notification icons, etc.). -->
+    <color name="ink">#0B0B0F</color>
+    <color name="paper">#FAF9F6</color>
+    <color name="accent">#3B82F6</color>
+    <color name="muted">#71717A</color>
+    <color name="hairline">#1F1F23</color>
+</resources>
