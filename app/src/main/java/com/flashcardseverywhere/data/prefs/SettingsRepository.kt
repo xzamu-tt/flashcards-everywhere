@@ -38,11 +38,16 @@ class SettingsRepository @Inject constructor(
     val enabledDecks: Flow<Set<String>> = store.data.map { it[Keys.ENABLED_DECKS] ?: emptySet() }
 
     /**
-     * Currently selected deck for the reviewer. `-1L` means "all decks" and is
-     * the default for fresh installs (matches AnkiDroid's `-1` sentinel for the
-     * `ReviewInfo` URI).
+     * Currently selected deck for the reviewer. [NO_DECK] (`-1L`) means
+     * "the user has not picked a deck yet" — the reviewer surfaces
+     * `ReviewState.NoDeckSelected` and prompts them to choose one in Settings.
+     *
+     * The previous "all decks" semantic was removed: passing `deckID=?` to
+     * AnkiDroid's ContentProvider only works for the query side, and the
+     * follow-up answer would silently fail because it answered against the
+     * wrong queue head. Forcing a single-deck pick is the supported pattern.
      */
-    val selectedDeckId: Flow<Long> = store.data.map { it[Keys.SELECTED_DECK_ID] ?: ALL_DECKS }
+    val selectedDeckId: Flow<Long> = store.data.map { it[Keys.SELECTED_DECK_ID] ?: NO_DECK }
 
     val lastSyncAt: Flow<Long> = store.data.map { it[Keys.LAST_SYNC_AT] ?: 0L }
     val onboardingDone: Flow<Boolean> = store.data.map { it[Keys.ONBOARDING_DONE] ?: false }
@@ -63,6 +68,7 @@ class SettingsRepository @Inject constructor(
         const val DEFAULT_PACING_MIN = 10
         const val DEFAULT_QUIET_START = 23
         const val DEFAULT_QUIET_END = 7
-        const val ALL_DECKS = -1L
+        /** Sentinel meaning "the user has not picked a deck yet". */
+        const val NO_DECK = -1L
     }
 }

@@ -50,7 +50,10 @@ class PacingEngine @Inject constructor(
         if (activeMs < intervalMs) return
 
         // Time to fire. Pull a fresh card and pick the right surface.
-        session.refresh()
+        // No-op if the user hasn't picked a deck — the reviewer will surface
+        // NoDeckSelected and we shouldn't post a notification for an empty
+        // queue.
+        session.refresh(deckId = settings.selectedDeckId.first())
         val state = session.state.value
         val card = (state as? ReviewState.Card)?.card ?: return
 

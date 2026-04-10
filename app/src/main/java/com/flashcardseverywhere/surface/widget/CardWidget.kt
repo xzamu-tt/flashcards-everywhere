@@ -84,6 +84,8 @@ class CardWidget : GlanceAppWidget() {
             when (state) {
                 is ReviewState.Card -> CardBody(ctx, state.card, state.cardsLeft)
                 is ReviewState.NoDueCards -> EmptyBody("No cards due")
+                is ReviewState.NoDeckSelected -> EmptyBody("Pick a deck in app")
+                is ReviewState.AnswerStuck -> EmptyBody("Open app to fix")
                 is ReviewState.PermissionDenied -> EmptyBody("Tap app to grant access")
                 is ReviewState.AnkiDroidNotInstalled -> EmptyBody("Install AnkiDroid")
                 is ReviewState.Error -> EmptyBody(state.message)

@@ -80,7 +80,17 @@ fun AppNavHost(rootVm: AppRootViewModel = hiltViewModel()) {
         }
         composable(Routes.REVIEW) {
             MainScaffold(nav = nav, currentRoute = Routes.REVIEW) {
-                ReviewerRoute()
+                ReviewerRoute(
+                    onNavigateToSettings = {
+                        nav.navigate(Routes.SETTINGS) {
+                            popUpTo(nav.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             }
         }
         composable(Routes.SETTINGS) {

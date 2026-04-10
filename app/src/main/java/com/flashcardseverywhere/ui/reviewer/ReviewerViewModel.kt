@@ -12,11 +12,11 @@ import com.flashcardseverywhere.data.prefs.SettingsRepository
 import com.flashcardseverywhere.domain.ReviewSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -43,8 +43,7 @@ class ReviewerViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _revealed.value = false
-            val deckId = settings.selectedDeckId.first()
-            session.refresh(deckId = deckId)
+            session.refresh(deckId = settings.selectedDeckId.first())
         }
     }
 
@@ -53,6 +52,14 @@ class ReviewerViewModel @Inject constructor(
     fun grade(ease: Ease) {
         viewModelScope.launch {
             session.grade(ease)
+            _revealed.value = false
+        }
+    }
+
+    /** Bury the current card and load the next one. Used to escape AnswerStuck. */
+    fun skip() {
+        viewModelScope.launch {
+            session.skip()
             _revealed.value = false
         }
     }

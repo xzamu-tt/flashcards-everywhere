@@ -111,6 +111,27 @@ class AnkiBridge @Inject constructor(
         cr.update(FlashCardsContract.Deck.CONTENT_SELECTED_URI, v, null, null) > 0
     }
 
+    /**
+     * Returns the total number of due cards in [deckId] (`new + learn + review`).
+     * Used to populate the reviewer's "cards left" counter without depending on
+     * an in-process card batch.
+     *
+     * Returns 0 if the deck doesn't exist or permission is missing.
+     */
+    suspend fun getDeckDueCount(deckId: Long): Int = withContext(Dispatchers.IO) {
+        if (!hasPermission()) return@withContext 0
+        val deckUri = Uri.withAppendedPath(
+            FlashCardsContract.Deck.CONTENT_ALL_URI, deckId.toString()
+        )
+        cr.query(deckUri, null, null, null, null)?.use { c ->
+            if (!c.moveToFirst()) return@use 0
+            val raw = c.getString(c.getColumnIndexOrThrow(FlashCardsContract.Deck.DECK_COUNTS))
+            val arr = runCatching { JSONArray(raw) }.getOrNull() ?: return@use 0
+            // DECK_COUNTS schema = [learn, review, new]
+            arr.optInt(0) + arr.optInt(1) + arr.optInt(2)
+        } ?: 0
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     //  Review queue
     // ─────────────────────────────────────────────────────────────────────

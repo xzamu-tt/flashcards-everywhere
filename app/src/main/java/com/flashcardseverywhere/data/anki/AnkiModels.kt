@@ -37,8 +37,19 @@ sealed interface ReviewState {
     data object Loading : ReviewState
     data object PermissionDenied : ReviewState
     data object AnkiDroidNotInstalled : ReviewState
+    /** User has not picked a deck in Settings yet. */
+    data object NoDeckSelected : ReviewState
     data object NoDueCards : ReviewState
     data class Card(val card: DueCard, val cardsLeft: Int) : ReviewState
+    /**
+     * AnkiDroid silently dropped the previous answer (a known limitation of
+     * the legacy `col.sched.answerCard(card, rating)` path that the public
+     * ContentProvider exposes — see CardContentProvider's catch-and-log block
+     * around `answerCard`). The next-fetched card has the same identity as
+     * the one we just graded. Surfacing this lets the user "Skip" the card
+     * via `bury` instead of being trapped in an infinite loop.
+     */
+    data class AnswerStuck(val card: DueCard) : ReviewState
     data class Error(val message: String) : ReviewState
 }
 

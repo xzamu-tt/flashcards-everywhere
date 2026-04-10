@@ -194,14 +194,10 @@ private fun DeckSection(
         }
         decks.isEmpty() -> BodyText("AnkiDroid returned no decks.")
         else -> Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-            // "All decks" virtual entry — uses the -1 sentinel that
-            // ReviewSession already understands.
-            DeckRow(
-                title = "All decks",
-                subtitle = decks.sumOf { it.totalDue }.let { "$it due across all decks" },
-                selected = selectedDeckId == SettingsRepository.ALL_DECKS,
-                onClick = { onSelect(SettingsRepository.ALL_DECKS) },
-            )
+            if (selectedDeckId == SettingsRepository.NO_DECK) {
+                BodyText("Pick the deck you want to review.")
+                Spacer(Modifier.height(12.dp))
+            }
             decks.forEach { deck ->
                 DeckRow(
                     title = deck.fullName,

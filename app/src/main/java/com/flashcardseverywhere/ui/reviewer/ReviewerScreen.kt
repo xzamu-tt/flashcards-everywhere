@@ -64,6 +64,8 @@ fun ReviewerScreen(
     onGrade: (Ease) -> Unit,
     onReveal: () -> Unit,
     onRefresh: () -> Unit,
+    onSkip: () -> Unit = {},
+    onPickDeck: () -> Unit = {},
 ) {
     // Re-check permission / installed-state when the user returns from
     // system settings or from installing AnkiDroid.
@@ -107,7 +109,9 @@ fun ReviewerScreen(
                             permissionLauncher.launch(FlashCardsContract.READ_WRITE_PERMISSION)
                         },
                     )
+                    is ReviewState.NoDeckSelected -> NoDeckSelected(onPickDeck)
                     is ReviewState.NoDueCards -> NoDueCards(onRefresh)
+                    is ReviewState.AnswerStuck -> AnswerStuck(onSkip = onSkip, onRetry = onRefresh)
                     is ReviewState.Error -> EmptyMessage(current.message)
                     is ReviewState.Card -> CardSurface(
                         card = current.card,
@@ -325,6 +329,61 @@ private fun PermissionDenied(onGrant: () -> Unit) {
             label = "Grant access",
             onClick = onGrant,
         )
+    }
+}
+
+@Composable
+private fun NoDeckSelected(onPickDeck: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "Pick a deck",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Choose which AnkiDroid deck to review from. You can change it any time.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Spacer(Modifier.height(24.dp))
+        QuietButton(label = "Open Settings", onClick = onPickDeck)
+    }
+}
+
+@Composable
+private fun AnswerStuck(onSkip: () -> Unit, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "AnkiDroid didn't accept the answer",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "The same card came back. Skip it for today, or retry the sync.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Spacer(Modifier.height(24.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            QuietButton(label = "Retry", onClick = onRetry, modifier = Modifier.weight(1f))
+            QuietButton(label = "Skip card", onClick = onSkip, modifier = Modifier.weight(1f))
+        }
     }
 }
 

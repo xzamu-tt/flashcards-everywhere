@@ -29,7 +29,7 @@ data class SettingsUiState(
     val pacingIntervalMin: Int = SettingsRepository.DEFAULT_PACING_MIN,
     val quietHoursStart: Int = SettingsRepository.DEFAULT_QUIET_START,
     val quietHoursEnd: Int = SettingsRepository.DEFAULT_QUIET_END,
-    val selectedDeckId: Long = SettingsRepository.ALL_DECKS,
+    val selectedDeckId: Long = SettingsRepository.NO_DECK,
     val decks: List<DeckRow>? = null,
     val ankiInstalled: Boolean = false,
     val ankiPermissionGranted: Boolean = false,
