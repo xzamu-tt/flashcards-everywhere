@@ -9,12 +9,20 @@ plugins {
     alias(libs.plugins.hilt) apply false
 }
 
-// The project lives on an HFS+ external drive that creates "._*" resource
-// forks on every file write. KSP/Hilt generated sources get poisoned by these,
-// crashing KSP with NullPointerException on `qualifiedName`. Redirect all
-// build output to a non-HFS+ location.
-allprojects {
-    layout.buildDirectory.set(
-        file("${System.getProperty("user.home")}/.cache/flashcards-everywhere/${project.name}/build")
-    )
+// LOCAL-ONLY workaround: when the project lives on a macOS HFS+/exFAT
+// external drive (e.g. /Volumes/T7), the filesystem creates "._*" AppleDouble
+// resource forks on every file write. KSP/Hilt generated sources get
+// poisoned by these, crashing KSP with NPE on `qualifiedName`.
+//
+// Detect the bad case and redirect build output to a clean location.
+// On Linux CI runners (and on local APFS) this branch is skipped and the
+// in-tree app/build/outputs path works as normal — which is what
+// .github/workflows/build-apk.yml expects.
+val projectOnVolumes = rootDir.absolutePath.startsWith("/Volumes/")
+if (projectOnVolumes) {
+    allprojects {
+        layout.buildDirectory.set(
+            file("${System.getProperty("user.home")}/.cache/flashcards-everywhere/${project.name}/build")
+        )
+    }
 }
