@@ -15,13 +15,20 @@
 package com.flashcardseverywhere.surface.overlay
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.PixelFormat
+import android.net.Uri
 import android.os.Build
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.View
 import android.view.WindowManager
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -40,7 +47,7 @@ class CardOverlayManager @Inject constructor(
     @ApplicationContext private val ctx: Context,
 ) {
     private val wm: WindowManager? get() = ctx.getSystemService()
-    private var overlayView: android.view.View? = null
+    private var overlayView: View? = null
 
     fun showCard(card: DueCard, onGraded: (() -> Unit)? = null) {
         if (!android.provider.Settings.canDrawOverlays(ctx)) return
@@ -122,7 +129,56 @@ class CardOverlayManager @Inject constructor(
         }
     }
 
-    private fun buildOverlayLayout(card: DueCard, onGraded: (() -> Unit)?): android.view.View {
+    // ── WebView helpers ─────────────────────────────────────────────────
+
+    private fun wrapHtml(html: String): String = """
+        <html><head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { margin: 0; padding: 16px; background: transparent; color: #fff; font-size: 18px; font-family: sans-serif; }
+          img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; }
+          .night_mode { background: transparent; color: #fff; }
+        </style>
+        </head><body class="night_mode"><div class="card">$html</div></body></html>
+    """.trimIndent()
+
+    private fun createCardWebView(card: DueCard): WebView = WebView(ctx).apply {
+        setBackgroundColor(Color.TRANSPARENT)
+        settings.javaScriptEnabled = false
+        settings.loadsImagesAutomatically = true
+        settings.allowContentAccess = true
+
+        webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest,
+            ): WebResourceResponse? {
+                val filename = request.url.lastPathSegment ?: return null
+                if (card.mediaFiles.contains(filename)) {
+                    val mediaUri = Uri.withAppendedPath(
+                        Uri.parse("content://com.ichi2.anki.flashcards/media"), filename
+                    )
+                    val inputStream =
+                        ctx.contentResolver.openInputStream(mediaUri) ?: return null
+                    val mimeType = when {
+                        filename.endsWith(".jpg", true) ||
+                            filename.endsWith(".jpeg", true) -> "image/jpeg"
+                        filename.endsWith(".png", true) -> "image/png"
+                        filename.endsWith(".gif", true) -> "image/gif"
+                        filename.endsWith(".webp", true) -> "image/webp"
+                        filename.endsWith(".svg", true) -> "image/svg+xml"
+                        else -> "application/octet-stream"
+                    }
+                    return WebResourceResponse(mimeType, "UTF-8", inputStream)
+                }
+                return null
+            }
+        }
+    }
+
+    // ── Overlay layout ──────────────────────────────────────────────────
+
+    private fun buildOverlayLayout(card: DueCard, onGraded: (() -> Unit)?): View {
         val dp = ctx.resources.displayMetrics.density
 
         return BackBlockingFrameLayout(ctx).apply {
@@ -138,7 +194,7 @@ class CardOverlayManager @Inject constructor(
 
             // Title
             inner.addView(TextView(ctx).apply {
-                text = "⚡ Time to review!"
+                text = "\u26A1 Time to review!"
                 setTextColor(0xFFE0E0E0.toInt())
                 textSize = 14f
                 setPadding(0, 0, 0, (16 * dp).toInt())
@@ -154,36 +210,75 @@ class CardOverlayManager @Inject constructor(
                 orientation = LinearLayout.VERTICAL
             }
 
-            // Front
-            cardContent.addView(TextView(ctx).apply {
-                text = stripHtml(card.frontHtml)
-                setTextColor(0xFFFFFFFF.toInt())
-                textSize = 20f
-                setPadding(0, 0, 0, (24 * dp).toInt())
-            })
+            // Front (WebView, always visible)
+            val frontWebView = createCardWebView(card).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                )
+            }
+            frontWebView.loadDataWithBaseURL(
+                "file:///android_asset/",
+                wrapHtml(card.frontHtml),
+                "text/html",
+                "UTF-8",
+                null,
+            )
+            cardContent.addView(frontWebView)
 
-            // Divider
-            cardContent.addView(android.view.View(ctx).apply {
+            // Divider (initially GONE, shown with answer)
+            val divider = View(ctx).apply {
                 setBackgroundColor(0x33FFFFFF)
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, (1 * dp).toInt(),
-                ).apply { bottomMargin = (24 * dp).toInt() }
-            })
+                ).apply {
+                    topMargin = (24 * dp).toInt()
+                    bottomMargin = (24 * dp).toInt()
+                }
+                visibility = View.GONE
+            }
+            cardContent.addView(divider)
 
-            // Back
-            cardContent.addView(TextView(ctx).apply {
-                text = stripHtml(card.backHtml)
-                setTextColor(0xFFCCCCCC.toInt())
-                textSize = 18f
-            })
+            // Back (WebView, initially GONE)
+            val backWebView = createCardWebView(card).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                )
+                visibility = View.GONE
+            }
+            backWebView.loadDataWithBaseURL(
+                "file:///android_asset/",
+                wrapHtml(card.backHtml),
+                "text/html",
+                "UTF-8",
+                null,
+            )
+            cardContent.addView(backWebView)
 
             scroll.addView(cardContent)
             inner.addView(scroll)
 
-            // Grade buttons row
+            // "Show Answer" button (initially VISIBLE)
+            val showAnswerBtn = Button(ctx).apply {
+                text = "Show Answer"
+                setTextColor(0xFFFFFFFF.toInt())
+                setBackgroundColor(0xFF3366CC.toInt())
+                textSize = 16f
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    topMargin = (24 * dp).toInt()
+                }
+            }
+            inner.addView(showAnswerBtn)
+
+            // Grade buttons row (initially GONE)
             val btnRow = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(0, (24 * dp).toInt(), 0, 0)
+                visibility = View.GONE
             }
             val eases = buildList {
                 add("Again" to Ease.AGAIN)
@@ -218,6 +313,14 @@ class CardOverlayManager @Inject constructor(
             }
             inner.addView(btnRow)
 
+            // Wire up "Show Answer" tap
+            showAnswerBtn.setOnClickListener {
+                divider.visibility = View.VISIBLE
+                backWebView.visibility = View.VISIBLE
+                btnRow.visibility = View.VISIBLE
+                showAnswerBtn.visibility = View.GONE
+            }
+
             addView(
                 inner,
                 FrameLayout.LayoutParams(
@@ -232,7 +335,7 @@ class CardOverlayManager @Inject constructor(
         message: String,
         cardsRemaining: Int,
         onReviewCard: () -> Unit,
-    ): android.view.View {
+    ): View {
         val dp = ctx.resources.displayMetrics.density
 
         return BackBlockingFrameLayout(ctx).apply {
@@ -315,10 +418,4 @@ class CardOverlayManager @Inject constructor(
         @Suppress("DEPRECATION")
         vibrator?.vibrate(200)
     }
-
-    private fun stripHtml(html: String): String =
-        androidx.core.text.HtmlCompat
-            .fromHtml(html, androidx.core.text.HtmlCompat.FROM_HTML_MODE_COMPACT)
-            .toString()
-            .trim()
 }

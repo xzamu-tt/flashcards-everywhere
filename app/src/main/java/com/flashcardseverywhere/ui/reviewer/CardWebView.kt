@@ -6,8 +6,11 @@ package com.flashcardseverywhere.ui.reviewer
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -34,6 +37,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 fun CardWebView(
     html: String,
     modifier: Modifier = Modifier,
+    mediaFiles: List<String> = emptyList(),
 ) {
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     val onBackground = MaterialTheme.colorScheme.onBackground.toArgbHex()
@@ -76,8 +80,35 @@ fun CardWebView(
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = true
                 settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                settings.allowContentAccess = true
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
+                webViewClient = object : WebViewClient() {
+                    override fun shouldInterceptRequest(
+                        view: WebView,
+                        request: WebResourceRequest
+                    ): WebResourceResponse? {
+                        val filename = request.url.lastPathSegment ?: return null
+                        if (mediaFiles.contains(filename)) {
+                            val mediaUri = android.net.Uri.withAppendedPath(
+                                android.net.Uri.parse("content://com.ichi2.anki.flashcards/media"),
+                                filename
+                            )
+                            val inputStream = view.context.contentResolver.openInputStream(mediaUri)
+                                ?: return null
+                            val mimeType = when {
+                                filename.endsWith(".jpg", true) || filename.endsWith(".jpeg", true) -> "image/jpeg"
+                                filename.endsWith(".png", true) -> "image/png"
+                                filename.endsWith(".gif", true) -> "image/gif"
+                                filename.endsWith(".webp", true) -> "image/webp"
+                                filename.endsWith(".svg", true) -> "image/svg+xml"
+                                else -> "application/octet-stream"
+                            }
+                            return WebResourceResponse(mimeType, "UTF-8", inputStream)
+                        }
+                        return null
+                    }
+                }
             }
         },
         update = { wv ->

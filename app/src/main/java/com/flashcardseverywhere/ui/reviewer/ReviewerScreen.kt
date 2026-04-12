@@ -156,10 +156,10 @@ private fun CardSurface(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                CardText(html = card.frontHtml)
+                CardText(html = card.frontHtml, mediaFiles = card.mediaFiles)
                 if (revealed) {
                     Hairline()
-                    CardText(html = card.backHtml)
+                    CardText(html = card.backHtml, mediaFiles = card.mediaFiles)
                 }
             }
         }
@@ -175,7 +175,7 @@ private fun CardSurface(
 }
 
 @Composable
-private fun CardText(html: String) {
+private fun CardText(html: String, mediaFiles: List<String> = emptyList()) {
     // Cards may contain rich HTML, embedded styles, and `<img>` tags. We render
     // them through a transparent WebView (see CardWebView.kt). For very short,
     // tag-free cards we still want the Compose-native typography, so we sniff
@@ -184,6 +184,7 @@ private fun CardText(html: String) {
     if (looksRich) {
         CardWebView(
             html = html,
+            mediaFiles = mediaFiles,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp),
