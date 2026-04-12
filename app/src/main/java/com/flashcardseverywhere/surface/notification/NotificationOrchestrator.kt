@@ -16,6 +16,7 @@ import com.flashcardseverywhere.app.FlashcardsApp
 import com.flashcardseverywhere.data.anki.DueCard
 import com.flashcardseverywhere.data.anki.Ease
 import com.flashcardseverywhere.surface.lockscreen.LockscreenReviewerActivity
+import com.flashcardseverywhere.ui.reviewer.CardHtmlRenderer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -50,9 +51,9 @@ class NotificationOrchestrator @Inject constructor(
     fun postDueCard(card: DueCard, vibrate: Boolean = true) {
         val builder = NotificationCompat.Builder(ctx, FlashcardsApp.CHANNEL_DUE)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(stripHtml(card.frontHtml))
+            .setContentTitle(CardHtmlRenderer.stripHtml(card.frontHtml))
             .setContentText("Tap to reveal answer")
-            .setStyle(NotificationCompat.BigTextStyle().bigText(stripHtml(card.frontHtml)))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(CardHtmlRenderer.stripHtml(card.frontHtml)))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
@@ -87,7 +88,7 @@ class NotificationOrchestrator @Inject constructor(
         )
         val builder = NotificationCompat.Builder(ctx, FlashcardsApp.CHANNEL_LOCKSCREEN)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(card?.let { stripHtml(it.frontHtml) } ?: "Time for a card")
+            .setContentTitle(card?.let { CardHtmlRenderer.stripHtml(it.frontHtml) } ?: "Time for a card")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -127,12 +128,6 @@ class NotificationOrchestrator @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
-
-    private fun stripHtml(html: String): String =
-        androidx.core.text.HtmlCompat
-            .fromHtml(html, androidx.core.text.HtmlCompat.FROM_HTML_MODE_COMPACT)
-            .toString()
-            .trim()
 
     companion object {
         private const val NOTIF_PERSISTENT = 1001

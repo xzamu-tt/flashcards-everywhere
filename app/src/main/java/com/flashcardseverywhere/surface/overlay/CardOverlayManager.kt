@@ -38,6 +38,7 @@ import androidx.core.content.getSystemService
 import com.flashcardseverywhere.data.anki.DueCard
 import com.flashcardseverywhere.data.anki.Ease
 import com.flashcardseverywhere.surface.notification.GradeReceiver
+import com.flashcardseverywhere.ui.reviewer.CardHtmlRenderer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -131,20 +132,9 @@ class CardOverlayManager @Inject constructor(
 
     // ── WebView helpers ─────────────────────────────────────────────────
 
-    private fun wrapHtml(html: String): String = """
-        <html><head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { margin: 0; padding: 16px; background: transparent; color: #fff; font-size: 18px; font-family: sans-serif; }
-          img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; }
-          .night_mode { background: transparent; color: #fff; }
-        </style>
-        </head><body class="night_mode"><div class="card">$html</div></body></html>
-    """.trimIndent()
-
     private fun createCardWebView(card: DueCard): WebView = WebView(ctx).apply {
         setBackgroundColor(Color.TRANSPARENT)
-        settings.javaScriptEnabled = false
+        settings.javaScriptEnabled = true
         settings.loadsImagesAutomatically = true
         settings.allowContentAccess = true
 
@@ -219,7 +209,14 @@ class CardOverlayManager @Inject constructor(
             }
             frontWebView.loadDataWithBaseURL(
                 "file:///android_asset/",
-                wrapHtml(card.frontHtml),
+                CardHtmlRenderer.render(
+                    html = card.frontHtml,
+                    cardOrd = card.cardOrd,
+                    nightMode = true,
+                    background = "transparent",
+                    foreground = "#ffffff",
+                    fontSize = 18,
+                ),
                 "text/html",
                 "UTF-8",
                 null,
@@ -249,7 +246,14 @@ class CardOverlayManager @Inject constructor(
             }
             backWebView.loadDataWithBaseURL(
                 "file:///android_asset/",
-                wrapHtml(card.backHtml),
+                CardHtmlRenderer.render(
+                    html = card.backHtml,
+                    cardOrd = card.cardOrd,
+                    nightMode = true,
+                    background = "transparent",
+                    foreground = "#ffffff",
+                    fontSize = 18,
+                ),
                 "text/html",
                 "UTF-8",
                 null,

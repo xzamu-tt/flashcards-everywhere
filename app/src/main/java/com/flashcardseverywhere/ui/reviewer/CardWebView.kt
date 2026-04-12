@@ -44,31 +44,13 @@ fun CardWebView(
     val background = MaterialTheme.colorScheme.background.toArgbHex()
 
     val wrapped = remember(html, isDark, onBackground, background) {
-        // Inline a small CSS preamble that overrides AnkiDroid's note-type
-        // styles to fit the Apple-minimal palette. Users can disable this in
-        // settings later if they want their original templates back.
-        """
-        <html>
-        <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            html, body {
-                background: $background;
-                color: $onBackground;
-                font-family: -apple-system, "Inter", "Helvetica Neue", system-ui, sans-serif;
-                font-size: 22px;
-                line-height: 1.45;
-                padding: 0;
-                margin: 0;
-                text-align: center;
-            }
-            img { max-width: 100%; height: auto; }
-            .card { background: transparent !important; color: inherit !important; }
-        </style>
-        </head>
-        <body><div class="card">$html</div></body>
-        </html>
-        """.trimIndent()
+        CardHtmlRenderer.render(
+            html = html,
+            nightMode = isDark,
+            background = background,
+            foreground = onBackground,
+            fontSize = 22,
+        )
     }
 
     AndroidView(
@@ -76,9 +58,11 @@ fun CardWebView(
         factory = { ctx ->
             WebView(ctx).apply {
                 setBackgroundColor(Color.TRANSPARENT)
-                settings.javaScriptEnabled = false  // AnkiDroid templates may use JS — opt-in later
+                settings.javaScriptEnabled = true
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = true
+                settings.builtInZoomControls = true
+                settings.displayZoomControls = false
                 settings.cacheMode = WebSettings.LOAD_NO_CACHE
                 settings.allowContentAccess = true
                 isVerticalScrollBarEnabled = false

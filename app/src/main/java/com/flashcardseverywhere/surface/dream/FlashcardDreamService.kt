@@ -12,8 +12,14 @@
  */
 package com.flashcardseverywhere.surface.dream
 
+import android.graphics.Color
+import android.net.Uri
 import android.service.dreams.DreamService
 import android.view.Gravity
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -24,6 +30,7 @@ import com.flashcardseverywhere.data.anki.ReviewState
 import com.flashcardseverywhere.domain.ReviewSession
 import com.flashcardseverywhere.data.prefs.SettingsRepository
 import com.flashcardseverywhere.surface.notification.GradeReceiver
+import com.flashcardseverywhere.ui.reviewer.CardHtmlRenderer
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -92,11 +99,25 @@ class FlashcardDreamService : DreamService() {
                 orientation = LinearLayout.VERTICAL
             }
 
-            content.addView(TextView(this@FlashcardDreamService).apply {
-                text = stripHtml(card.frontHtml)
-                setTextColor(0xFFFFFFFF.toInt())
-                textSize = 24f
-                setPadding(0, 0, 0, (32 * dp).toInt())
+            content.addView(createDreamWebView(card).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply { bottomMargin = (32 * dp).toInt() }
+                loadDataWithBaseURL(
+                    "file:///android_asset/",
+                    CardHtmlRenderer.render(
+                        html = card.frontHtml,
+                        cardOrd = card.cardOrd,
+                        nightMode = true,
+                        background = "transparent",
+                        foreground = "#ffffff",
+                        fontSize = 24,
+                    ),
+                    "text/html",
+                    "UTF-8",
+                    null,
+                )
             })
 
             // Divider
@@ -108,13 +129,28 @@ class FlashcardDreamService : DreamService() {
             })
 
             // Back (hidden initially)
-            val backText = TextView(this@FlashcardDreamService).apply {
-                text = stripHtml(card.backHtml)
-                setTextColor(0xFFCCCCCC.toInt())
-                textSize = 20f
+            val backWebView = createDreamWebView(card).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                )
                 visibility = android.view.View.GONE
+                loadDataWithBaseURL(
+                    "file:///android_asset/",
+                    CardHtmlRenderer.render(
+                        html = card.backHtml,
+                        cardOrd = card.cardOrd,
+                        nightMode = true,
+                        background = "transparent",
+                        foreground = "#ffffff",
+                        fontSize = 24,
+                    ),
+                    "text/html",
+                    "UTF-8",
+                    null,
+                )
             }
-            content.addView(backText)
+            content.addView(backWebView)
             scroll.addView(content)
             addView(scroll)
 
@@ -181,7 +217,7 @@ class FlashcardDreamService : DreamService() {
             }
 
             showAnswerBtn.setOnClickListener {
-                backText.visibility = android.view.View.VISIBLE
+                backWebView.visibility = android.view.View.VISIBLE
                 showAnswerBtn.visibility = android.view.View.GONE
                 gradeRow.visibility = android.view.View.VISIBLE
                 revealed = true
@@ -210,9 +246,38 @@ class FlashcardDreamService : DreamService() {
         }
     }
 
-    private fun stripHtml(html: String): String =
-        androidx.core.text.HtmlCompat
-            .fromHtml(html, androidx.core.text.HtmlCompat.FROM_HTML_MODE_COMPACT)
-            .toString()
-            .trim()
+    @android.annotation.SuppressLint("SetJavaScriptEnabled")
+    private fun createDreamWebView(card: DueCard): WebView = WebView(this).apply {
+        setBackgroundColor(Color.TRANSPARENT)
+        settings.javaScriptEnabled = true
+        settings.loadsImagesAutomatically = true
+        settings.allowContentAccess = true
+
+        webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest,
+            ): WebResourceResponse? {
+                val filename = request.url.lastPathSegment ?: return null
+                if (card.mediaFiles.contains(filename)) {
+                    val mediaUri = Uri.withAppendedPath(
+                        Uri.parse("content://com.ichi2.anki.flashcards/media"), filename
+                    )
+                    val inputStream =
+                        contentResolver.openInputStream(mediaUri) ?: return null
+                    val mimeType = when {
+                        filename.endsWith(".jpg", true) ||
+                            filename.endsWith(".jpeg", true) -> "image/jpeg"
+                        filename.endsWith(".png", true) -> "image/png"
+                        filename.endsWith(".gif", true) -> "image/gif"
+                        filename.endsWith(".webp", true) -> "image/webp"
+                        filename.endsWith(".svg", true) -> "image/svg+xml"
+                        else -> "application/octet-stream"
+                    }
+                    return WebResourceResponse(mimeType, "UTF-8", inputStream)
+                }
+                return null
+            }
+        }
+    }
 }

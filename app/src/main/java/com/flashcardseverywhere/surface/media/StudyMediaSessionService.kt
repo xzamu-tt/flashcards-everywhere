@@ -43,6 +43,7 @@ import com.flashcardseverywhere.data.anki.ReviewState
 import com.flashcardseverywhere.data.prefs.SettingsRepository
 import com.flashcardseverywhere.domain.ReviewSession
 import com.flashcardseverywhere.surface.notification.GradeReceiver
+import com.flashcardseverywhere.ui.reviewer.CardHtmlRenderer
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -88,10 +89,10 @@ class StudyMediaSessionService : LifecycleService() {
         // Build metadata.
         val metadata = MediaMetadataCompat.Builder().apply {
             if (card != null) {
-                putString(MediaMetadataCompat.METADATA_KEY_TITLE, stripHtml(card.frontHtml))
+                putString(MediaMetadataCompat.METADATA_KEY_TITLE, CardHtmlRenderer.stripHtml(card.frontHtml))
                 putString(
                     MediaMetadataCompat.METADATA_KEY_ARTIST,
-                    if (revealed) stripHtml(card.backHtml) else "Tap play to reveal answer"
+                    if (revealed) CardHtmlRenderer.stripHtml(card.backHtml) else "Tap play to reveal answer"
                 )
                 putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "Flashcards Everywhere")
                 putLong(MediaMetadataCompat.METADATA_KEY_DURATION, -1L)
@@ -145,9 +146,9 @@ class StudyMediaSessionService : LifecycleService() {
 
         val builder = NotificationCompat.Builder(this, FlashcardsApp.CHANNEL_DUE)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(card?.let { stripHtml(it.frontHtml) } ?: "No cards due")
+            .setContentTitle(card?.let { CardHtmlRenderer.stripHtml(it.frontHtml) } ?: "No cards due")
             .setContentText(
-                if (card != null && revealed) stripHtml(card.backHtml)
+                if (card != null && revealed) CardHtmlRenderer.stripHtml(card.backHtml)
                 else if (card != null) "Tap to reveal"
                 else "All caught up!"
             )
@@ -272,12 +273,6 @@ class StudyMediaSessionService : LifecycleService() {
         mediaSession.release()
         super.onDestroy()
     }
-
-    private fun stripHtml(html: String): String =
-        androidx.core.text.HtmlCompat
-            .fromHtml(html, androidx.core.text.HtmlCompat.FROM_HTML_MODE_COMPACT)
-            .toString()
-            .trim()
 
     companion object {
         private const val FOREGROUND_ID = 2003

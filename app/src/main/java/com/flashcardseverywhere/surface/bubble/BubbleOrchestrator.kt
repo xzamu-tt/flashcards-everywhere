@@ -25,6 +25,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
 import com.flashcardseverywhere.app.FlashcardsApp
 import com.flashcardseverywhere.data.anki.DueCard
+import com.flashcardseverywhere.ui.reviewer.CardHtmlRenderer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -101,7 +102,7 @@ class BubbleOrchestrator @Inject constructor(
 
         val style = Notification.MessagingStyle(person)
             .addMessage(
-                stripHtml(card.frontHtml),
+                CardHtmlRenderer.stripHtml(card.frontHtml),
                 System.currentTimeMillis(),
                 person,
             )
@@ -116,12 +117,6 @@ class BubbleOrchestrator @Inject constructor(
 
         nm?.notify(NOTIF_BUBBLE, notification)
     }
-
-    private fun stripHtml(html: String): String =
-        androidx.core.text.HtmlCompat
-            .fromHtml(html, androidx.core.text.HtmlCompat.FROM_HTML_MODE_COMPACT)
-            .toString()
-            .trim()
 
     companion object {
         private const val NOTIF_BUBBLE = 1004

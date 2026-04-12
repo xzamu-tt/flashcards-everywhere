@@ -56,6 +56,7 @@ import com.flashcardseverywhere.data.anki.DueCard
 import com.flashcardseverywhere.data.anki.Ease
 import com.flashcardseverywhere.data.anki.FlashCardsContract
 import com.flashcardseverywhere.data.anki.ReviewState
+import com.flashcardseverywhere.ui.reviewer.CardHtmlRenderer
 import com.flashcardseverywhere.ui.theme.FlashcardsTheme
 
 @Composable
@@ -191,7 +192,7 @@ private fun CardText(html: String, mediaFiles: List<String> = emptyList()) {
         )
     } else {
         Text(
-            text = html.trim(),
+            text = CardHtmlRenderer.stripHtml(html),
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,
