@@ -58,7 +58,8 @@ class LockscreenReviewerActivity : ComponentActivity() {
                         state = state,
                         onGrade = { ease ->
                             vm.grade(ease)
-                            // Optional: finish after one card so we don't trap the user.
+                            // Auto-finish after grading so we don't trap the user.
+                            finish()
                         },
                         onReveal = vm::reveal,
                         onRefresh = vm::refresh,

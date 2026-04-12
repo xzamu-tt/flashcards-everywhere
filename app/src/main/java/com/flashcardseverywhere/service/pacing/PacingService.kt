@@ -79,6 +79,9 @@ class PacingService : LifecycleService() {
 
     companion object {
         private const val FOREGROUND_ID = 2001
-        private const val TICK_INTERVAL_MS = 60_000L  // 1 min
+        // Tick every 15 seconds for responsive escalation and aggressive pacing.
+        // The PacingEngine itself decides whether to fire based on accumulated
+        // screen-on time vs the user's configured pacing interval.
+        private const val TICK_INTERVAL_MS = 15_000L
     }
 }

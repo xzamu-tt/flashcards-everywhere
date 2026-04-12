@@ -47,7 +47,7 @@ class NotificationOrchestrator @Inject constructor(
     }
 
     /** Heads-up "here is a card, grade it" without opening the app. */
-    fun postDueCard(card: DueCard) {
+    fun postDueCard(card: DueCard, vibrate: Boolean = true) {
         val builder = NotificationCompat.Builder(ctx, FlashcardsApp.CHANNEL_DUE)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(stripHtml(card.frontHtml))
@@ -56,6 +56,7 @@ class NotificationOrchestrator @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
+            .setVibrate(if (vibrate) longArrayOf(0, 200, 100, 200) else longArrayOf(0))
             .addAction(0, ctx.getString(R.string.grade_again), gradeIntent(card, Ease.AGAIN))
             .addAction(0, ctx.getString(R.string.grade_good), gradeIntent(card, Ease.GOOD))
 

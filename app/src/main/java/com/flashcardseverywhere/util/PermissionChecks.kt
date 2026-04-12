@@ -74,6 +74,18 @@ object PermissionChecks {
         ctx.startActivity(i)
     }
 
+    // ── Overlay (SYSTEM_ALERT_WINDOW) ────────────────────────────────────
+    fun hasOverlayPermission(ctx: Context): Boolean =
+        Settings.canDrawOverlays(ctx)
+
+    fun openOverlaySettings(ctx: Context) {
+        val i = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+            data = Uri.parse("package:${ctx.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        ctx.startActivity(i)
+    }
+
     // ── Battery optimisation (so the foreground service isn't killed) ──────
     fun openBatteryOptimisationSettings(ctx: Context) {
         val i = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {

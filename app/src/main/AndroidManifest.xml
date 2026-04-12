@@ -25,6 +25,11 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <!-- ============================================================
+         Overlay + app blocking
+         ============================================================ -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+
+    <!-- ============================================================
          Package visibility (Android 11+)
          Without this, ContentResolver returns null for any
          FlashCardsContract URI even when the permission is granted.
@@ -108,6 +113,49 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
+
+        <!-- App blocker foreground service (full flavor) -->
+        <service
+            android:name=".service.blocking.AppBlockerService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Blocks designated apps and requires flashcard review to unlock them."/>
+        </service>
+
+        <!-- Dream service (screensaver): flashcards when charging/idle -->
+        <service
+            android:name=".surface.dream.FlashcardDreamService"
+            android:exported="true"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.service.dream"
+                android:resource="@xml/flashcard_dream_info"/>
+        </service>
+
+        <!-- Media session service: flashcard as media notification on lockscreen -->
+        <service
+            android:name=".surface.media.StudyMediaSessionService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Displays current flashcard as media notification on lockscreen for ambient review."/>
+        </service>
+
+        <!-- Bubble activity: hosted inside notification bubble -->
+        <activity
+            android:name=".surface.bubble.BubbleActivity"
+            android:exported="false"
+            android:allowEmbedded="true"
+            android:resizeableActivity="true"
+            android:documentLaunchMode="always"
+            android:theme="@style/Theme.FlashcardsEverywhere"/>
 
     </application>
 </manifest>

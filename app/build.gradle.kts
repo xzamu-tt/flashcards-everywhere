@@ -119,6 +119,9 @@ dependencies {
 
     implementation(libs.work.runtime.ktx)
 
+    // Media session for lockscreen flashcard media notification.
+    implementation("androidx.media:media:1.7.0")
+
     implementation(libs.coil.compose)
 
     testImplementation(libs.junit)

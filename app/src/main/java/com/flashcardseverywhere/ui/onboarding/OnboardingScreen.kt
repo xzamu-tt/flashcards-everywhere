@@ -142,6 +142,15 @@ fun OnboardingScreen(
                     action = { PermissionChecks.openUsageAccessSettings(ctx) },
                 )
             )
+            add(
+                Step(
+                    title = "Display over other apps",
+                    body = "Shows full-screen flashcard overlays on top of any app. Required for overlay and app blocking features.",
+                    granted = PermissionChecks.hasOverlayPermission(ctx),
+                    cta = "Open settings",
+                    action = { PermissionChecks.openOverlaySettings(ctx) },
+                )
+            )
         }
     }
 

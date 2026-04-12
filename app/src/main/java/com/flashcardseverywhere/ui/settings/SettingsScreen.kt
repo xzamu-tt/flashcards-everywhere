@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -106,8 +108,8 @@ fun SettingsScreen(
                 Stepper(
                     value = state.pacingIntervalMin,
                     suffix = "minutes",
-                    step = 5,
-                    range = 5..120,
+                    step = 1,
+                    range = 1..120,
                     onChange = vm::setPacingInterval,
                 )
             }
@@ -115,7 +117,7 @@ fun SettingsScreen(
             // ─── Quiet hours ───────────────────────────────────────────
             item {
                 SectionHeader("Quiet hours")
-                BodyText("No cards arrive between these hours.")
+                BodyText("No cards arrive between these hours (unless aggressive mode is on).")
                 Spacer(Modifier.height(12.dp))
                 QuietHoursRow(
                     start = state.quietHoursStart,
@@ -124,7 +126,173 @@ fun SettingsScreen(
                 )
             }
 
+            // ─── Interruption surfaces ─────────────────────────────────
+            item { HairlineDivider() }
+            item {
+                SectionHeader("Interruption surfaces")
+                BodyText("Choose how flashcards interrupt you. Enable all for maximum interruption.")
+                Spacer(Modifier.height(16.dp))
+
+                ToggleRow(
+                    label = "Notifications",
+                    description = "Heads-up notification with grade buttons",
+                    checked = state.notificationEnabled,
+                    onToggle = vm::setNotificationEnabled,
+                )
+                Spacer(Modifier.height(12.dp))
+                ToggleRow(
+                    label = "Lockscreen",
+                    description = "Full-screen card on locked device",
+                    checked = state.lockscreenEnabled,
+                    onToggle = vm::setLockscreenEnabled,
+                )
+                Spacer(Modifier.height(12.dp))
+                ToggleRow(
+                    label = "Overlay",
+                    description = "Full-screen overlay on top of any app. Must grade to dismiss.",
+                    checked = state.overlayEnabled,
+                    onToggle = { on ->
+                        if (on && !state.overlayPermissionGranted) {
+                            vm.openOverlaySettings()
+                        } else {
+                            vm.setOverlayEnabled(on)
+                        }
+                    },
+                )
+                if (state.overlayEnabled && !state.overlayPermissionGranted) {
+                    Spacer(Modifier.height(8.dp))
+                    WarningText("Overlay permission not granted. Tap the toggle to open settings.")
+                }
+                Spacer(Modifier.height(12.dp))
+                ToggleRow(
+                    label = "Floating bubble",
+                    description = "Floating flashcard bubble on top of every app (Android 11+)",
+                    checked = state.bubbleEnabled,
+                    onToggle = vm::setBubbleEnabled,
+                )
+                Spacer(Modifier.height(12.dp))
+                ToggleRow(
+                    label = "Media session",
+                    description = "Giant lockscreen media card with grade buttons as media controls",
+                    checked = state.mediaSessionEnabled,
+                    onToggle = vm::setMediaSessionEnabled,
+                )
+                Spacer(Modifier.height(12.dp))
+                ToggleRow(
+                    label = "Screensaver (Dream)",
+                    description = "Interactive flashcards when charging and idle. Set in Display settings.",
+                    checked = state.dreamEnabled,
+                    onToggle = vm::setDreamEnabled,
+                )
+            }
+
+            // ─── Escalation ────────────────────────────────────────────
+            item {
+                SectionHeader("Escalation")
+                BodyText("If you ignore a card, escalate to a more aggressive surface.")
+                Spacer(Modifier.height(16.dp))
+
+                ToggleRow(
+                    label = "Auto-escalate",
+                    description = "Notification → Lockscreen → Overlay when card is ignored",
+                    checked = state.escalationEnabled,
+                    onToggle = vm::setEscalationEnabled,
+                )
+                if (state.escalationEnabled) {
+                    Spacer(Modifier.height(12.dp))
+                    BodyText("Escalate after ignoring for:")
+                    Spacer(Modifier.height(8.dp))
+                    Stepper(
+                        value = state.escalationTimeoutSec,
+                        suffix = "seconds",
+                        step = 30,
+                        range = 30..600,
+                        onChange = vm::setEscalationTimeout,
+                    )
+                }
+            }
+
+            // ─── App blocking ──────────────────────────────────────────
+            item { HairlineDivider() }
+            item {
+                SectionHeader("App blocking")
+                BodyText("Block apps until you review a flashcard. Requires overlay permission.")
+                Spacer(Modifier.height(16.dp))
+
+                ToggleRow(
+                    label = "Enable app blocking",
+                    description = "Shows a blocker overlay when you open blocked apps",
+                    checked = state.appBlockingEnabled,
+                    onToggle = { on ->
+                        if (on && !state.overlayPermissionGranted) {
+                            vm.openOverlaySettings()
+                        } else {
+                            vm.setAppBlockingEnabled(on)
+                        }
+                    },
+                )
+                if (state.appBlockingEnabled) {
+                    Spacer(Modifier.height(12.dp))
+                    ToggleRow(
+                        label = "Block ALL apps",
+                        description = "Nuclear option — every app requires a card to unlock",
+                        checked = state.blockAllApps,
+                        onToggle = vm::setBlockAllApps,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    BodyText("Unlock duration after grading:")
+                    Spacer(Modifier.height(8.dp))
+                    Stepper(
+                        value = state.blockUnlockDurationMin,
+                        suffix = "minutes",
+                        step = 1,
+                        range = 1..60,
+                        onChange = vm::setBlockUnlockDuration,
+                    )
+                    if (!state.blockAllApps) {
+                        Spacer(Modifier.height(16.dp))
+                        BodyText("Blocked apps: ${state.blockedPackages.size}")
+                        if (state.blockedPackages.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                state.blockedPackages.sorted().forEach { pkg ->
+                                    PackageRow(
+                                        packageName = pkg,
+                                        onRemove = { vm.removeBlockedPackage(pkg) },
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        AddPackageButton(onAdd = vm::addBlockedPackage)
+                    }
+                }
+            }
+
+            // ─── Aggressive mode ───────────────────────────────────────
+            item { HairlineDivider() }
+            item {
+                SectionHeader("Aggressive mode")
+                BodyText("Maximum interruption. Ignores quiet hours. Cards fire relentlessly.")
+                Spacer(Modifier.height(16.dp))
+
+                ToggleRow(
+                    label = "Aggressive mode",
+                    description = "Bypass quiet hours, always interrupt",
+                    checked = state.aggressiveMode,
+                    onToggle = vm::setAggressiveMode,
+                )
+                Spacer(Modifier.height(12.dp))
+                ToggleRow(
+                    label = "Vibrate on card",
+                    description = "Vibrate when a card is surfaced",
+                    checked = state.vibrateOnCard,
+                    onToggle = vm::setVibrateOnCard,
+                )
+            }
+
             // ─── AnkiDroid sync ────────────────────────────────────────
+            item { HairlineDivider() }
             item {
                 SectionHeader("AnkiDroid")
                 BodyText("Last synced: ${formatLastSync(state.lastSyncAt)}")
@@ -150,6 +318,10 @@ fun SettingsScreen(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+//  Section components
+// ─────────────────────────────────────────────────────────────────────────
+
 @Composable
 private fun SectionHeader(text: String) {
     Text(
@@ -167,6 +339,60 @@ private fun BodyText(text: String) {
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+@Composable
+private fun WarningText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+    )
+}
+
+@Composable
+private fun HairlineDivider() {
+    Surface(
+        color = MaterialTheme.colorScheme.outlineVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(0.5.dp),
+    ) {}
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Toggle row
+// ─────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun ToggleRow(
+    label: String,
+    description: String,
+    checked: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.size(16.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onToggle,
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -258,6 +484,79 @@ private fun DeckRow(
                 )
             }
         }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Package row (for blocked apps)
+// ─────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun PackageRow(packageName: String, onRemove: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = packageName,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.size(8.dp))
+        Surface(
+            onClick = onRemove,
+            color = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.error,
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+        ) {
+            Text(
+                text = "Remove",
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddPackageButton(onAdd: (String) -> Unit) {
+    var editing by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf("") }
+
+    if (editing) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.compose.material3.OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Package name") },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.size(8.dp))
+            QuietButton(
+                label = "Add",
+                onClick = {
+                    val pkg = text.trim()
+                    if (pkg.isNotEmpty()) {
+                        onAdd(pkg)
+                        text = ""
+                        editing = false
+                    }
+                },
+            )
+        }
+    } else {
+        QuietButton(
+            label = "Add blocked app",
+            onClick = { editing = true },
+        )
     }
 }
 

@@ -54,6 +54,23 @@ class FlashcardsApp : Application() {
                 NotificationManager.IMPORTANCE_LOW,
             ).apply { setShowBadge(false) }
         )
+        nm.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_BLOCKER,
+                "App blocker",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply { setShowBadge(false) }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_BUBBLE,
+                "Flashcard bubbles",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                setAllowBubbles(true)
+                setShowBadge(true)
+            }
+        )
     }
 
     companion object {
@@ -61,5 +78,7 @@ class FlashcardsApp : Application() {
         const val CHANNEL_DUE = "due_heads_up"
         const val CHANNEL_LOCKSCREEN = "lockscreen_fullscreen"
         const val CHANNEL_PACING = "pacing_foreground"
+        const val CHANNEL_BLOCKER = "app_blocker"
+        const val CHANNEL_BUBBLE = "flashcard_bubble"
     }
 }
