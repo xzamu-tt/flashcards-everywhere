@@ -249,6 +249,16 @@ fun SettingsScreen(
                         range = 1..60,
                         onChange = vm::setBlockUnlockDuration,
                     )
+                    Spacer(Modifier.height(12.dp))
+                    BodyText("Cards required before unlocking:")
+                    Spacer(Modifier.height(8.dp))
+                    Stepper(
+                        value = state.cardsToUnlock,
+                        suffix = "cards",
+                        step = 1,
+                        range = 1..20,
+                        onChange = vm::setCardsToUnlock,
+                    )
                     if (!state.blockAllApps) {
                         Spacer(Modifier.height(16.dp))
                         BodyText("Blocked apps: ${state.blockedPackages.size}")
@@ -263,6 +273,11 @@ fun SettingsScreen(
                                 }
                             }
                         }
+                        Spacer(Modifier.height(8.dp))
+                        QuietButton(
+                            label = "Add all popular distraction apps",
+                            onClick = vm::addAllPopularApps,
+                        )
                         Spacer(Modifier.height(8.dp))
                         AddPackageButton(onAdd = vm::addBlockedPackage)
                     }
@@ -493,12 +508,13 @@ private fun DeckRow(
 
 @Composable
 private fun PackageRow(packageName: String, onRemove: () -> Unit) {
+    val displayName = SettingsRepository.POPULAR_DISTRACTION_APPS[packageName] ?: packageName
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = packageName,
+            text = displayName,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onBackground,
             fontFamily = FontFamily.Monospace,

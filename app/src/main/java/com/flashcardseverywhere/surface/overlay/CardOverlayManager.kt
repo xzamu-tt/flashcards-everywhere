@@ -20,8 +20,10 @@ import android.os.Build
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -40,11 +42,11 @@ class CardOverlayManager @Inject constructor(
     private val wm: WindowManager? get() = ctx.getSystemService()
     private var overlayView: android.view.View? = null
 
-    fun showCard(card: DueCard) {
+    fun showCard(card: DueCard, onGraded: (() -> Unit)? = null) {
         if (!android.provider.Settings.canDrawOverlays(ctx)) return
         dismiss()
 
-        val layout = buildOverlayLayout(card)
+        val layout = buildOverlayLayout(card, onGraded)
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -54,29 +56,26 @@ class CardOverlayManager @Inject constructor(
             else
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
-                or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+            // No FLAG_NOT_FOCUSABLE, no FLAG_NOT_TOUCH_MODAL — overlay captures
+            // all touch and key events so the user must grade the card.
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.CENTER
         }
-
-        // Make the overlay capture touch so user must interact with it.
-        params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-        params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL.inv()
 
         overlayView = layout
         wm?.addView(layout, params)
         vibrate()
     }
 
-    fun showBlocker(message: String, onGradeCard: () -> Unit) {
+    fun showBlocker(message: String, cardsRemaining: Int, onReviewCard: () -> Unit) {
         if (!android.provider.Settings.canDrawOverlays(ctx)) return
         dismiss()
 
-        val layout = buildBlockerLayout(message, onGradeCard)
+        val layout = buildBlockerLayout(message, cardsRemaining, onReviewCard)
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -86,10 +85,11 @@ class CardOverlayManager @Inject constructor(
             else
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
+            // No FLAG_NOT_FOCUSABLE, no FLAG_NOT_TOUCH_MODAL — fully blocking.
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
-                or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
-            PixelFormat.TRANSLUCENT,
+                or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
+            PixelFormat.OPAQUE,
         ).apply {
             gravity = Gravity.CENTER
         }
@@ -108,50 +108,77 @@ class CardOverlayManager @Inject constructor(
 
     val isShowing: Boolean get() = overlayView != null
 
-    private fun buildOverlayLayout(card: DueCard): android.view.View {
+    /**
+     * A [FrameLayout] that intercepts the back key so the user cannot dismiss
+     * the overlay without grading.
+     */
+    private inner class BackBlockingFrameLayout(context: Context) : FrameLayout(context) {
+        override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+            if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+                // Consume back press — do nothing.
+                return true
+            }
+            return super.dispatchKeyEvent(event)
+        }
+    }
+
+    private fun buildOverlayLayout(card: DueCard, onGraded: (() -> Unit)?): android.view.View {
         val dp = ctx.resources.displayMetrics.density
 
-        return LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF1A1A2E.toInt()) // dark navy
-            setPadding((24 * dp).toInt(), (64 * dp).toInt(), (24 * dp).toInt(), (32 * dp).toInt())
+        return BackBlockingFrameLayout(ctx).apply {
+            setBackgroundColor(0xFF0D0D1A.toInt())
+
+            val inner = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(
+                    (24 * dp).toInt(), (64 * dp).toInt(),
+                    (24 * dp).toInt(), (32 * dp).toInt(),
+                )
+            }
 
             // Title
-            addView(TextView(ctx).apply {
+            inner.addView(TextView(ctx).apply {
                 text = "⚡ Time to review!"
                 setTextColor(0xFFE0E0E0.toInt())
                 textSize = 14f
                 setPadding(0, 0, 0, (16 * dp).toInt())
             })
 
-            // Front
+            // Scrollable card content
             val scroll = ScrollView(ctx).apply {
                 layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
+                    LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f,
                 )
             }
             val cardContent = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL
             }
+
+            // Front
             cardContent.addView(TextView(ctx).apply {
                 text = stripHtml(card.frontHtml)
                 setTextColor(0xFFFFFFFF.toInt())
                 textSize = 20f
                 setPadding(0, 0, 0, (24 * dp).toInt())
             })
+
+            // Divider
             cardContent.addView(android.view.View(ctx).apply {
                 setBackgroundColor(0x33FFFFFF)
                 layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, (1 * dp).toInt()
+                    LinearLayout.LayoutParams.MATCH_PARENT, (1 * dp).toInt(),
                 ).apply { bottomMargin = (24 * dp).toInt() }
             })
+
+            // Back
             cardContent.addView(TextView(ctx).apply {
                 text = stripHtml(card.backHtml)
                 setTextColor(0xFFCCCCCC.toInt())
                 textSize = 18f
             })
+
             scroll.addView(cardContent)
-            addView(scroll)
+            inner.addView(scroll)
 
             // Grade buttons row
             val btnRow = LinearLayout(ctx).apply {
@@ -171,41 +198,65 @@ class CardOverlayManager @Inject constructor(
                     setBackgroundColor(
                         when (ease) {
                             Ease.AGAIN -> 0xFFCC3333.toInt()
-                            Ease.HARD -> 0xFFCC9933.toInt()
-                            Ease.GOOD -> 0xFF339933.toInt()
-                            Ease.EASY -> 0xFF3366CC.toInt()
+                            Ease.HARD  -> 0xFFCC9933.toInt()
+                            Ease.GOOD  -> 0xFF339933.toInt()
+                            Ease.EASY  -> 0xFF3366CC.toInt()
                         }
                     )
                     layoutParams = LinearLayout.LayoutParams(
-                        0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-                    ).apply { marginStart = (4 * dp).toInt(); marginEnd = (4 * dp).toInt() }
+                        0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f,
+                    ).apply {
+                        marginStart = (4 * dp).toInt()
+                        marginEnd = (4 * dp).toInt()
+                    }
                     setOnClickListener {
                         GradeReceiver.sendGrade(ctx, card.noteId, card.cardOrd, ease)
+                        onGraded?.invoke()
                         dismiss()
                     }
                 })
             }
-            addView(btnRow)
+            inner.addView(btnRow)
+
+            addView(
+                inner,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
         }
     }
 
-    private fun buildBlockerLayout(message: String, onGradeCard: () -> Unit): android.view.View {
+    private fun buildBlockerLayout(
+        message: String,
+        cardsRemaining: Int,
+        onReviewCard: () -> Unit,
+    ): android.view.View {
         val dp = ctx.resources.displayMetrics.density
 
-        return LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
+        return BackBlockingFrameLayout(ctx).apply {
             setBackgroundColor(0xFF0D0D1A.toInt())
-            setPadding((32 * dp).toInt(), (64 * dp).toInt(), (32 * dp).toInt(), (64 * dp).toInt())
-            gravity = Gravity.CENTER
 
-            addView(TextView(ctx).apply {
-                text = "🔒"
+            val inner = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(
+                    (32 * dp).toInt(), (64 * dp).toInt(),
+                    (32 * dp).toInt(), (64 * dp).toInt(),
+                )
+                gravity = Gravity.CENTER
+            }
+
+            // Lock icon
+            inner.addView(TextView(ctx).apply {
+                text = "\uD83D\uDD12"
                 textSize = 48f
                 gravity = Gravity.CENTER
                 setPadding(0, 0, 0, (24 * dp).toInt())
             })
 
-            addView(TextView(ctx).apply {
+            // Title
+            inner.addView(TextView(ctx).apply {
                 text = "App Blocked"
                 setTextColor(0xFFFFFFFF.toInt())
                 textSize = 28f
@@ -213,22 +264,44 @@ class CardOverlayManager @Inject constructor(
                 setPadding(0, 0, 0, (16 * dp).toInt())
             })
 
-            addView(TextView(ctx).apply {
+            // Message
+            inner.addView(TextView(ctx).apply {
                 text = message
                 setTextColor(0xFFAAAAAA.toInt())
                 textSize = 16f
                 gravity = Gravity.CENTER
+                setPadding(0, 0, 0, (16 * dp).toInt())
+            })
+
+            // Cards remaining counter
+            inner.addView(TextView(ctx).apply {
+                text = "Review $cardsRemaining card${if (cardsRemaining != 1) "s" else ""} to unlock"
+                setTextColor(0xFFE0E0E0.toInt())
+                textSize = 18f
+                gravity = Gravity.CENTER
                 setPadding(0, 0, 0, (32 * dp).toInt())
             })
 
-            addView(Button(ctx).apply {
-                text = "Review a flashcard to unlock"
+            // Start reviewing button
+            inner.addView(Button(ctx).apply {
+                text = "Start reviewing"
                 setTextColor(0xFFFFFFFF.toInt())
                 setBackgroundColor(0xFF3366CC.toInt())
                 textSize = 16f
-                setPadding((24 * dp).toInt(), (16 * dp).toInt(), (24 * dp).toInt(), (16 * dp).toInt())
-                setOnClickListener { onGradeCard() }
+                setPadding(
+                    (24 * dp).toInt(), (16 * dp).toInt(),
+                    (24 * dp).toInt(), (16 * dp).toInt(),
+                )
+                setOnClickListener { onReviewCard() }
             })
+
+            addView(
+                inner,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
         }
     }
 

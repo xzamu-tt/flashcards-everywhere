@@ -50,6 +50,7 @@ class SettingsRepository @Inject constructor(
         val BLOCK_ALL_APPS = booleanPreferencesKey("block_all_apps")
         val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
         val BLOCK_UNLOCK_DURATION_MIN = intPreferencesKey("block_unlock_duration_min")
+        val CARDS_TO_UNLOCK = intPreferencesKey("cards_to_unlock")
 
         // ── Aggressive mode ───────────────────────────────────────────
         val AGGRESSIVE_MODE = booleanPreferencesKey("aggressive_mode")
@@ -98,6 +99,7 @@ class SettingsRepository @Inject constructor(
     val blockAllApps: Flow<Boolean> = store.data.map { it[Keys.BLOCK_ALL_APPS] ?: false }
     val blockedPackages: Flow<Set<String>> = store.data.map { it[Keys.BLOCKED_PACKAGES] ?: emptySet() }
     val blockUnlockDurationMin: Flow<Int> = store.data.map { it[Keys.BLOCK_UNLOCK_DURATION_MIN] ?: DEFAULT_BLOCK_UNLOCK_MIN }
+    val cardsToUnlock: Flow<Int> = store.data.map { it[Keys.CARDS_TO_UNLOCK] ?: DEFAULT_CARDS_TO_UNLOCK }
 
     // ── Aggressive mode ───────────────────────────────────────────────────
     val aggressiveMode: Flow<Boolean> = store.data.map { it[Keys.AGGRESSIVE_MODE] ?: false }
@@ -135,6 +137,7 @@ class SettingsRepository @Inject constructor(
     suspend fun setBlockAllApps(on: Boolean) = store.edit { it[Keys.BLOCK_ALL_APPS] = on }
     suspend fun setBlockedPackages(pkgs: Set<String>) = store.edit { it[Keys.BLOCKED_PACKAGES] = pkgs }
     suspend fun setBlockUnlockDurationMin(min: Int) = store.edit { it[Keys.BLOCK_UNLOCK_DURATION_MIN] = min.coerceIn(1, 60) }
+    suspend fun setCardsToUnlock(count: Int) = store.edit { it[Keys.CARDS_TO_UNLOCK] = count.coerceIn(1, 20) }
 
     suspend fun setAggressiveMode(on: Boolean) = store.edit { it[Keys.AGGRESSIVE_MODE] = on }
     suspend fun setVibrateOnCard(on: Boolean) = store.edit { it[Keys.VIBRATE_ON_CARD] = on }
@@ -146,7 +149,28 @@ class SettingsRepository @Inject constructor(
         const val DEFAULT_QUIET_END = 7
         const val DEFAULT_ESCALATION_TIMEOUT_SEC = 120
         const val DEFAULT_BLOCK_UNLOCK_MIN = 5
+        const val DEFAULT_CARDS_TO_UNLOCK = 3
         /** Sentinel meaning "the user has not picked a deck yet". */
         const val NO_DECK = -1L
+
+        val POPULAR_DISTRACTION_APPS = mapOf(
+            "com.instagram.android" to "Instagram",
+            "com.google.android.youtube" to "YouTube",
+            "com.zhiliaoapp.musically" to "TikTok",
+            "com.facebook.katana" to "Facebook",
+            "com.facebook.orca" to "Messenger",
+            "com.twitter.android" to "X (Twitter)",
+            "com.snapchat.android" to "Snapchat",
+            "com.reddit.frontpage" to "Reddit",
+            "com.whatsapp" to "WhatsApp",
+            "org.telegram.messenger" to "Telegram",
+            "com.discord" to "Discord",
+            "com.netflix.mediaclient" to "Netflix",
+            "com.tinder" to "Tinder",
+            "com.pinterest" to "Pinterest",
+            "com.linkedin.android" to "LinkedIn",
+            "com.amazon.avod.thirdpartyclient" to "Prime Video",
+            "com.Slack" to "Slack",
+        )
     }
 }

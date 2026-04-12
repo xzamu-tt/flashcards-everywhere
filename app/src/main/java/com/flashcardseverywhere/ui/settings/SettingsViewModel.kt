@@ -54,6 +54,7 @@ data class SettingsUiState(
     val blockAllApps: Boolean = false,
     val blockedPackages: Set<String> = emptySet(),
     val blockUnlockDurationMin: Int = SettingsRepository.DEFAULT_BLOCK_UNLOCK_MIN,
+    val cardsToUnlock: Int = SettingsRepository.DEFAULT_CARDS_TO_UNLOCK,
 
     // ── Aggressive mode ───────────────────────────────────────────────
     val aggressiveMode: Boolean = false,
@@ -104,11 +105,13 @@ class SettingsViewModel @Inject constructor(
     private data class BlockBundle(
         val enabled: Boolean, val blockAll: Boolean,
         val packages: Set<String>, val unlockMin: Int,
+        val cardsToUnlock: Int,
     )
     private val blockBundle = combine(
         settings.appBlockingEnabled, settings.blockAllApps,
         settings.blockedPackages, settings.blockUnlockDurationMin,
-    ) { e, ba, p, um -> BlockBundle(e, ba, p, um) }
+        settings.cardsToUnlock,
+    ) { e, ba, p, um, ctu -> BlockBundle(e, ba, p, um, ctu) }
 
     private data class MetaBundle(
         val lastSync: Long, val decks: List<DeckRow>?,
@@ -145,6 +148,7 @@ class SettingsViewModel @Inject constructor(
             blockAllApps = block.blockAll,
             blockedPackages = block.packages,
             blockUnlockDurationMin = block.unlockMin,
+            cardsToUnlock = block.cardsToUnlock,
             aggressiveMode = esc.aggressive,
             vibrateOnCard = esc.vibrate,
         )
@@ -229,6 +233,11 @@ class SettingsViewModel @Inject constructor(
         settings.setBlockedPackages(current - pkg)
     }
     fun setBlockUnlockDuration(min: Int) = viewModelScope.launch { settings.setBlockUnlockDurationMin(min) }
+    fun setCardsToUnlock(count: Int) = viewModelScope.launch { settings.setCardsToUnlock(count) }
+    fun addAllPopularApps() = viewModelScope.launch {
+        val current = settings.blockedPackages.stateIn(viewModelScope).value
+        settings.setBlockedPackages(current + SettingsRepository.POPULAR_DISTRACTION_APPS.keys)
+    }
 
     // ── Aggressive mode ───────────────────────────────────────────────────
     fun setAggressiveMode(on: Boolean) = viewModelScope.launch { settings.setAggressiveMode(on) }
