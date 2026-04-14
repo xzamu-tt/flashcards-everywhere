@@ -128,11 +128,14 @@ class ScreenTimeBudgetEngine @Inject constructor(
 
     /**
      * Resets budget counters if the day has rolled over (past midnight).
+     * Detects rollover by comparing the anchor's calendar day to today.
      */
     private suspend fun ensureDayRollover() {
         val anchor = settings.budgetDayAnchor.first()
-        val todayAnchor = SettingsRepository.todayAnchorMs()
-        if (anchor < todayAnchor) {
+        if (anchor <= 0L) return // Not yet initialized; setBudgetEnabled will reset.
+        val todayMidnight = SettingsRepository.todayAnchorMs()
+        // If the anchor is before today's midnight, a new day has started.
+        if (anchor < todayMidnight) {
             settings.resetBudgetDay()
             settings.resetStatsDay()
         }

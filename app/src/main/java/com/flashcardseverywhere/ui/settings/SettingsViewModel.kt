@@ -281,8 +281,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settings.setBudgetEnabled(on)
             if (on) {
+                // Reset counters with anchor = NOW (not midnight) to avoid
+                // counting pre-existing screen time against the budget.
                 settings.resetBudgetDay()
+                // Grant 5 min initial budget so the user can finish configuring.
+                settings.creditBudgetCard(INITIAL_BUDGET_GRACE_MS)
                 EnforcementService.start(ctx)
+            } else {
+                EnforcementService.stop(ctx)
             }
         }
     }
@@ -311,4 +317,9 @@ class SettingsViewModel @Inject constructor(
     )
 
     private data class BridgeProbe(val installed: Boolean, val permissionGranted: Boolean)
+
+    companion object {
+        /** 5 minutes of grace budget when first enabling screen-time budget. */
+        private const val INITIAL_BUDGET_GRACE_MS = 5L * 60_000L
+    }
 }

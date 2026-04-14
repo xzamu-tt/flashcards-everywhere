@@ -40,6 +40,8 @@ import com.flashcardseverywhere.service.doom.DoomScrollDetector
 import com.flashcardseverywhere.service.grayscale.GrayscaleManager
 import com.flashcardseverywhere.surface.overlay.CardOverlayManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -66,6 +68,9 @@ class EnforcementService : LifecycleService() {
 
     /** Tracks what triggered the current overlay for correct handling. */
     private var currentTrigger: Trigger = Trigger.NONE
+
+    /** Timestamp of last overlay dismissal — used for cooldown to prevent spam. */
+    private var lastOverlayDismissedAt = 0L
 
     private enum class Trigger { NONE, BUDGET, APP_BLOCK, DOOM_SCROLL }
 
@@ -114,6 +119,15 @@ class EnforcementService : LifecycleService() {
         if (overlayInProgress) return
         if (!android.provider.Settings.canDrawOverlays(this)) return
 
+        // Never enforce anything while the user is inside our own app.
+        // They need full access to settings, the reviewer, and the dashboard.
+        val fg = getCurrentForegroundPackage()
+        if (fg == packageName) return
+
+        // Cooldown after last overlay dismissal — prevents rapid re-lock spam.
+        val now = System.currentTimeMillis()
+        if (now - lastOverlayDismissedAt < OVERLAY_COOLDOWN_MS) return
+
         // ── 1. Screen-time budget ────────────────────────────────────
         val budgetLocked = budgetEngine.tick()
         if (budgetLocked) {
@@ -125,7 +139,7 @@ class EnforcementService : LifecycleService() {
         }
 
         // ── 2. App blocking (existing M7 logic) ─────────────────────
-        if (checkAppBlocking()) return
+        if (checkAppBlocking(fg)) return
 
         // ── 3. Doom-scroll detection ─────────────────────────────────
         val doomEvent = doomDetector.tick()
@@ -191,10 +205,10 @@ class EnforcementService : LifecycleService() {
 
     // ── App blocking (from former AppBlockerService) ─────────────────
 
-    private suspend fun checkAppBlocking(): Boolean {
+    private suspend fun checkAppBlocking(fg: String?): Boolean {
         if (!settings.appBlockingEnabled.first()) return false
-
-        val fg = getCurrentForegroundPackage() ?: return false
+        if (fg == null) return false
+        // Our own app is already excluded in tick(), but double-check here.
         if (fg == packageName) return false
         if (fg in WHITELISTED_PACKAGES || isWhitelistedPrefix(fg)) return false
 
@@ -314,6 +328,7 @@ class EnforcementService : LifecycleService() {
         overlayInProgress = false
         currentTrigger = Trigger.NONE
         cardsReviewedForCurrentBlock = 0
+        lastOverlayDismissedAt = System.currentTimeMillis()
     }
 
     private fun getCurrentForegroundPackage(): String? {
@@ -339,7 +354,10 @@ class EnforcementService : LifecycleService() {
         pollerJob = null
         overlayManager.dismiss()
         overlayInProgress = false
-        lifecycleScope.launch { grayscale.disableGrayscale() }
+        // Can't use lifecycleScope here — lifecycle is already destroyed.
+        // Fire-and-forget on a global scope for cleanup.
+        @OptIn(DelicateCoroutinesApi::class)
+        GlobalScope.launch { grayscale.disableGrayscale() }
         super.onDestroy()
     }
 
@@ -347,6 +365,8 @@ class EnforcementService : LifecycleService() {
         private const val TAG = "EnforcementService"
         private const val FOREGROUND_ID = 2003
         private const val POLL_INTERVAL_MS = 1_000L
+        /** Minimum ms between overlay dismissal and the next lockout. Prevents spam. */
+        private const val OVERLAY_COOLDOWN_MS = 5_000L
 
         private val WHITELISTED_PACKAGES = setOf(
             "com.android.settings",

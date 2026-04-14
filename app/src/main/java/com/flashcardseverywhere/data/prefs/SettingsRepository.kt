@@ -212,13 +212,15 @@ class SettingsRepository @Inject constructor(
         prefs[Keys.BUDGET_LOCKED] = false
     }
 
-    /** Resets budget counters for a new day. */
+    /** Resets budget counters for a new day. Uses current time as anchor. */
     suspend fun resetBudgetDay() = store.edit { prefs ->
         prefs[Keys.BUDGET_CARDS_REVIEWED_TODAY] = 0
         prefs[Keys.BUDGET_EARNED_MS] = 0L
         prefs[Keys.BUDGET_CONSUMED_MS] = 0L
-        prefs[Keys.BUDGET_DAY_ANCHOR] = todayAnchorMs()
-        prefs[Keys.BUDGET_LOCKED] = true
+        // Anchor to NOW, not midnight. This ensures we only count screen time
+        // from when the budget was activated, not retroactively from midnight.
+        prefs[Keys.BUDGET_DAY_ANCHOR] = System.currentTimeMillis()
+        prefs[Keys.BUDGET_LOCKED] = false // Start unlocked so user can configure
     }
 
     // ── Doom-scroll setters ──────────────────────────────────────────────
