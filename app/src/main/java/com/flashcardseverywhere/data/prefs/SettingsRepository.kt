@@ -82,13 +82,13 @@ class SettingsRepository @Inject constructor(
     // ── Interruption surface toggles ──────────────────────────────────────
     val notificationEnabled: Flow<Boolean> = store.data.map { it[Keys.NOTIFICATION_ENABLED] ?: true }
     val lockscreenEnabled: Flow<Boolean> = store.data.map { it[Keys.LOCKSCREEN_ENABLED] ?: true }
-    val overlayEnabled: Flow<Boolean> = store.data.map { it[Keys.OVERLAY_ENABLED] ?: false }
+    val overlayEnabled: Flow<Boolean> = store.data.map { it[Keys.OVERLAY_ENABLED] ?: true }
     val bubbleEnabled: Flow<Boolean> = store.data.map { it[Keys.BUBBLE_ENABLED] ?: false }
     val dreamEnabled: Flow<Boolean> = store.data.map { it[Keys.DREAM_ENABLED] ?: false }
     val mediaSessionEnabled: Flow<Boolean> = store.data.map { it[Keys.MEDIA_SESSION_ENABLED] ?: false }
 
     // ── Escalation ────────────────────────────────────────────────────────
-    val escalationEnabled: Flow<Boolean> = store.data.map { it[Keys.ESCALATION_ENABLED] ?: true }
+    val escalationEnabled: Flow<Boolean> = store.data.map { it[Keys.ESCALATION_ENABLED] ?: false }
     val escalationTimeoutSec: Flow<Int> = store.data.map { it[Keys.ESCALATION_TIMEOUT_SEC] ?: DEFAULT_ESCALATION_TIMEOUT_SEC }
     val escalationLevel: Flow<Int> = store.data.map { it[Keys.ESCALATION_LEVEL] ?: 0 }
     val lastCardSurfacedAt: Flow<Long> = store.data.map { it[Keys.LAST_CARD_SURFACED_AT] ?: 0L }
@@ -144,7 +144,7 @@ class SettingsRepository @Inject constructor(
 
     companion object {
         const val DEFAULT_DAILY_GOAL = 200
-        const val DEFAULT_PACING_MIN = 10
+        const val DEFAULT_PACING_MIN = 5
         const val DEFAULT_QUIET_START = 23
         const val DEFAULT_QUIET_END = 7
         const val DEFAULT_ESCALATION_TIMEOUT_SEC = 120

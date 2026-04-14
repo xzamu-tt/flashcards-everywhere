@@ -9,6 +9,7 @@
  */
 package com.flashcardseverywhere.ui.settings
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,9 +22,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -35,6 +41,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,6 +52,12 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flashcardseverywhere.data.anki.DeckRow
+import com.flashcardseverywhere.data.anki.DeckTreeNode
+import com.flashcardseverywhere.data.anki.FlatDeckItem
+import com.flashcardseverywhere.data.anki.allNodeIds
+import com.flashcardseverywhere.data.anki.buildDeckTree
+import com.flashcardseverywhere.data.anki.flattenDeckTree
+import com.flashcardseverywhere.data.anki.searchMatchingIds
 import com.flashcardseverywhere.data.prefs.SettingsRepository
 import java.text.DateFormat
 import java.util.Date
@@ -434,70 +448,201 @@ private fun DeckSection(
             QuietButton(label = "Retry", onClick = onReload)
         }
         decks.isEmpty() -> BodyText("AnkiDroid returned no decks.")
-        else -> Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-            if (selectedDeckId == SettingsRepository.NO_DECK) {
-                BodyText("Pick the deck you want to review.")
-                Spacer(Modifier.height(12.dp))
-            }
-            decks.forEach { deck ->
-                DeckRow(
-                    title = deck.fullName,
-                    subtitle = deckSubtitle(deck),
-                    selected = selectedDeckId == deck.id,
-                    onClick = { onSelect(deck.id) },
+        else -> DeckTreePicker(
+            decks = decks,
+            selectedDeckId = selectedDeckId,
+            onSelect = onSelect,
+        )
+    }
+}
+
+@Composable
+private fun DeckTreePicker(
+    decks: List<DeckRow>,
+    selectedDeckId: Long,
+    onSelect: (Long) -> Unit,
+) {
+    val tree = remember(decks) { buildDeckTree(decks) }
+    // Start with all nodes expanded so user sees the full hierarchy.
+    var expandedIds by remember(tree) { mutableStateOf(allNodeIds(tree)) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    // When searching, auto-expand matching branches and dim non-matches.
+    val (matchIds, searchExpandedIds) = remember(tree, searchQuery) {
+        if (searchQuery.isBlank()) emptySet<Long>() to emptySet()
+        else searchMatchingIds(tree, searchQuery)
+    }
+    val effectiveExpanded = if (searchQuery.isBlank()) expandedIds else searchExpandedIds
+
+    val flatItems = remember(tree, effectiveExpanded) {
+        flattenDeckTree(tree, effectiveExpanded)
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        if (selectedDeckId == SettingsRepository.NO_DECK) {
+            BodyText("Pick the deck you want to review.")
+            Spacer(Modifier.height(12.dp))
+        }
+
+        // Search field (show when there are enough decks to warrant it).
+        if (decks.size > 8) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = { Text("Search decks") },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+
+        // Collapse / expand all toggle.
+        Row {
+            Surface(
+                onClick = {
+                    expandedIds = if (expandedIds.isEmpty()) allNodeIds(tree) else emptySet()
+                    searchQuery = ""
+                },
+                color = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.primary,
+            ) {
+                Text(
+                    text = if (expandedIds.isEmpty() && searchQuery.isBlank()) "Expand all" else "Collapse all",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(vertical = 4.dp),
                 )
             }
+        }
+        Spacer(Modifier.height(8.dp))
+
+        flatItems.forEach { item ->
+            val dimmed = searchQuery.isNotBlank() && item.node.id !in matchIds
+            DeckTreeRow(
+                item = item,
+                selected = item.node.deck?.id == selectedDeckId,
+                dimmed = dimmed,
+                onToggle = { id ->
+                    expandedIds = if (id in expandedIds) expandedIds - id else expandedIds + id
+                    searchQuery = ""   // clear search when manually toggling
+                },
+                onSelect = { item.node.deck?.id?.let(onSelect) },
+            )
         }
     }
 }
 
-private fun deckSubtitle(deck: DeckRow): String {
-    val parts = buildList {
-        if (deck.newCount > 0) add("${deck.newCount} new")
-        if (deck.learnCount > 0) add("${deck.learnCount} learn")
-        if (deck.reviewCount > 0) add("${deck.reviewCount} review")
-    }
-    val extras = if (deck.isDynamic) listOf("filtered") else emptyList()
-    val all = parts + extras
-    return if (all.isEmpty()) "no cards due" else all.joinToString(" · ")
-}
-
 @Composable
-private fun DeckRow(
-    title: String,
-    subtitle: String,
+private fun DeckTreeRow(
+    item: FlatDeckItem,
     selected: Boolean,
-    onClick: () -> Unit,
+    dimmed: Boolean,
+    onToggle: (Long) -> Unit,
+    onSelect: () -> Unit,
 ) {
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (item.isExpanded) 90f else 0f,
+        label = "chevron",
+    )
+    val indentDp = (item.depth * 20).dp
+    val alpha = if (dimmed) 0.35f else 1f
+
     Surface(
-        onClick = onClick,
-        color = MaterialTheme.colorScheme.background,
+        onClick = onSelect,
+        enabled = item.node.deck != null,   // synthetic parents are not selectable
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp),
+                .padding(start = indentDp, end = 4.dp)
+                .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            RadioButton(
-                selected = selected,
-                onClick = null,
-            )
-            Spacer(Modifier.size(12.dp))
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            // Expand / collapse chevron
+            if (item.hasChildren) {
+                Surface(
+                    onClick = { onToggle(item.node.id) },
+                    color = Color.Transparent,
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = if (item.isExpanded) "Collapse" else "Expand",
+                            modifier = Modifier
+                                .size(20.dp)
+                                .rotate(chevronRotation),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+                        )
+                    }
+                }
+            } else {
+                Spacer(Modifier.width(28.dp))
             }
+
+            // Radio button (only for real decks)
+            if (item.node.deck != null) {
+                RadioButton(
+                    selected = selected,
+                    onClick = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+
+            // Deck leaf name
+            Text(
+                text = item.node.leafName,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (item.hasChildren) FontWeight.Medium else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = alpha),
+                modifier = Modifier.weight(1f),
+            )
+
+            // Card counts (Anki-style: blue new · orange learn · green review)
+            item.node.deck?.let { deck ->
+                DeckCardCounts(deck, alpha)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeckCardCounts(deck: DeckRow, alpha: Float) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (deck.newCount > 0) {
+            Text(
+                text = "${deck.newCount}",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF1565C0).copy(alpha = alpha),    // blue — new
+            )
+        }
+        if (deck.learnCount > 0) {
+            Text(
+                text = "${deck.learnCount}",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFFC35617).copy(alpha = alpha),    // orange — learn
+            )
+        }
+        if (deck.reviewCount > 0) {
+            Text(
+                text = "${deck.reviewCount}",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF2E7D32).copy(alpha = alpha),    // green — review
+            )
+        }
+        if (deck.isDynamic) {
+            Text(
+                text = "⚡",
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
     }
 }

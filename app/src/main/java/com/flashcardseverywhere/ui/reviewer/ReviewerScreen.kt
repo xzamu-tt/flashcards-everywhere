@@ -145,24 +145,16 @@ private fun CardSurface(
 
         Spacer(Modifier.height(48.dp))
 
-        // The card body — front, then a hairline, then back when revealed.
+        // Before reveal: show QUESTION (front only).
+        // After reveal: show ANSWER (front + <hr id=answer> + back, matching AnkiDroid).
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
             contentAlignment = Alignment.Center,
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(40.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                CardText(html = card.frontHtml, mediaFiles = card.mediaFiles)
-                if (revealed) {
-                    Hairline()
-                    CardText(html = card.backHtml, mediaFiles = card.mediaFiles)
-                }
-            }
+            val html = if (revealed) card.backHtml else card.frontHtml
+            CardText(html = html, mediaFiles = card.mediaFiles)
         }
 
         Spacer(Modifier.height(32.dp))
@@ -199,15 +191,6 @@ private fun CardText(html: String, mediaFiles: List<String> = emptyList()) {
             modifier = Modifier.fillMaxWidth(),
         )
     }
-}
-
-@Composable
-private fun Hairline() {
-    Box(
-        modifier = Modifier
-            .size(width = 24.dp, height = 1.dp)
-            .background(MaterialTheme.colorScheme.outline),
-    )
 }
 
 @Composable

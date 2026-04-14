@@ -5,9 +5,9 @@
  * The brain of the pacing loop.
  *
  * Called periodically from [PacingService] (every 15 seconds). On each tick:
- *   1. Read current screen-on time delta from [UsagePulseSource].
+ *   1. Check wall-clock elapsed time since last sync.
  *   2. If inside quiet hours (and not aggressive mode), no-op.
- *   3. If accumulated screen-on time crosses the pacing interval, surface
+ *   3. If elapsed time crosses the pacing interval, surface
  *      a card on ALL enabled surfaces simultaneously.
  *   4. Escalation FSM: if a surfaced card wasn't graded within the timeout,
  *      bump the escalation level and re-surface more aggressively.
@@ -31,7 +31,6 @@ import javax.inject.Singleton
 
 @Singleton
 class PacingEngine @Inject constructor(
-    private val pulse: UsagePulseSource,
     private val settings: SettingsRepository,
     private val session: ReviewSession,
     private val notifications: NotificationOrchestrator,
@@ -52,9 +51,9 @@ class PacingEngine @Inject constructor(
 
         val now = System.currentTimeMillis()
         val anchor = settings.lastSyncAt.first().takeIf { it > 0L } ?: now
-        val activeMs = pulse.foregroundMillisSince(anchor)
+        val elapsed = now - anchor
 
-        if (activeMs < intervalMs) return
+        if (elapsed < intervalMs) return
 
         // Time to fire. Pull a fresh card and surface on ALL enabled channels.
         session.refresh(deckId = settings.selectedDeckId.first())

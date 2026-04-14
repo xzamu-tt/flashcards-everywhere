@@ -99,58 +99,33 @@ class FlashcardDreamService : DreamService() {
                 orientation = LinearLayout.VERTICAL
             }
 
-            content.addView(createDreamWebView(card).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply { bottomMargin = (32 * dp).toInt() }
-                loadDataWithBaseURL(
-                    "file:///android_asset/",
-                    CardHtmlRenderer.render(
-                        html = card.frontHtml,
-                        cardOrd = card.cardOrd,
-                        nightMode = true,
-                        background = "transparent",
-                        foreground = "#ffffff",
-                        fontSize = 24,
-                    ),
-                    "text/html",
-                    "UTF-8",
-                    null,
-                )
-            })
-
-            // Divider
-            content.addView(android.view.View(this@FlashcardDreamService).apply {
-                setBackgroundColor(0x33FFFFFF)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, (1 * dp).toInt()
-                ).apply { bottomMargin = (32 * dp).toInt() }
-            })
-
-            // Back (hidden initially)
-            val backWebView = createDreamWebView(card).apply {
+            // Single WebView: shows QUESTION initially, swaps to ANSWER on reveal.
+            val frontRendered = CardHtmlRenderer.render(
+                html = card.frontHtml,
+                cardOrd = card.cardOrd,
+                nightMode = true,
+                background = "transparent",
+                foreground = "#ffffff",
+                fontSize = 24,
+            )
+            val backRendered = CardHtmlRenderer.render(
+                html = card.backHtml,
+                cardOrd = card.cardOrd,
+                nightMode = true,
+                background = "transparent",
+                foreground = "#ffffff",
+                fontSize = 24,
+            )
+            val cardWebView = createDreamWebView(card).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                 )
-                visibility = android.view.View.GONE
                 loadDataWithBaseURL(
-                    "file:///android_asset/",
-                    CardHtmlRenderer.render(
-                        html = card.backHtml,
-                        cardOrd = card.cardOrd,
-                        nightMode = true,
-                        background = "transparent",
-                        foreground = "#ffffff",
-                        fontSize = 24,
-                    ),
-                    "text/html",
-                    "UTF-8",
-                    null,
+                    "file:///android_asset/", frontRendered, "text/html", "UTF-8", null,
                 )
             }
-            content.addView(backWebView)
+            content.addView(cardWebView)
             scroll.addView(content)
             addView(scroll)
 
@@ -217,7 +192,9 @@ class FlashcardDreamService : DreamService() {
             }
 
             showAnswerBtn.setOnClickListener {
-                backWebView.visibility = android.view.View.VISIBLE
+                cardWebView.loadDataWithBaseURL(
+                    "file:///android_asset/", backRendered, "text/html", "UTF-8", null,
+                )
                 showAnswerBtn.visibility = android.view.View.GONE
                 gradeRow.visibility = android.view.View.VISIBLE
                 revealed = true

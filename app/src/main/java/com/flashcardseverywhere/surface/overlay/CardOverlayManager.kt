@@ -200,65 +200,34 @@ class CardOverlayManager @Inject constructor(
                 orientation = LinearLayout.VERTICAL
             }
 
-            // Front (WebView, always visible)
-            val frontWebView = createCardWebView(card).apply {
+            // Single WebView: shows QUESTION initially, swaps to ANSWER on reveal.
+            // ANSWER already contains front + <hr id=answer> + back (AnkiDroid style).
+            val cardWebView = createCardWebView(card).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                 )
             }
-            frontWebView.loadDataWithBaseURL(
-                "file:///android_asset/",
-                CardHtmlRenderer.render(
-                    html = card.frontHtml,
-                    cardOrd = card.cardOrd,
-                    nightMode = true,
-                    background = "transparent",
-                    foreground = "#ffffff",
-                    fontSize = 18,
-                ),
-                "text/html",
-                "UTF-8",
-                null,
+            val frontRendered = CardHtmlRenderer.render(
+                html = card.frontHtml,
+                cardOrd = card.cardOrd,
+                nightMode = true,
+                background = "transparent",
+                foreground = "#ffffff",
+                fontSize = 18,
             )
-            cardContent.addView(frontWebView)
-
-            // Divider (initially GONE, shown with answer)
-            val divider = View(ctx).apply {
-                setBackgroundColor(0x33FFFFFF)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, (1 * dp).toInt(),
-                ).apply {
-                    topMargin = (24 * dp).toInt()
-                    bottomMargin = (24 * dp).toInt()
-                }
-                visibility = View.GONE
-            }
-            cardContent.addView(divider)
-
-            // Back (WebView, initially GONE)
-            val backWebView = createCardWebView(card).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                )
-                visibility = View.GONE
-            }
-            backWebView.loadDataWithBaseURL(
-                "file:///android_asset/",
-                CardHtmlRenderer.render(
-                    html = card.backHtml,
-                    cardOrd = card.cardOrd,
-                    nightMode = true,
-                    background = "transparent",
-                    foreground = "#ffffff",
-                    fontSize = 18,
-                ),
-                "text/html",
-                "UTF-8",
-                null,
+            val backRendered = CardHtmlRenderer.render(
+                html = card.backHtml,
+                cardOrd = card.cardOrd,
+                nightMode = true,
+                background = "transparent",
+                foreground = "#ffffff",
+                fontSize = 18,
             )
-            cardContent.addView(backWebView)
+            cardWebView.loadDataWithBaseURL(
+                "file:///android_asset/", frontRendered, "text/html", "UTF-8", null,
+            )
+            cardContent.addView(cardWebView)
 
             scroll.addView(cardContent)
             inner.addView(scroll)
@@ -317,10 +286,11 @@ class CardOverlayManager @Inject constructor(
             }
             inner.addView(btnRow)
 
-            // Wire up "Show Answer" tap
+            // Wire up "Show Answer" tap — swap WebView to full ANSWER HTML
             showAnswerBtn.setOnClickListener {
-                divider.visibility = View.VISIBLE
-                backWebView.visibility = View.VISIBLE
+                cardWebView.loadDataWithBaseURL(
+                    "file:///android_asset/", backRendered, "text/html", "UTF-8", null,
+                )
                 btnRow.visibility = View.VISIBLE
                 showAnswerBtn.visibility = View.GONE
             }
