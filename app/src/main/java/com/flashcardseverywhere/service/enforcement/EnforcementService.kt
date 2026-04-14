@@ -77,22 +77,28 @@ class EnforcementService : LifecycleService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
 
-        val n: Notification = NotificationCompat
-            .Builder(this, FlashcardsApp.CHANNEL_PACING)
-            .setSmallIcon(android.R.drawable.ic_lock_lock)
-            .setContentTitle(getString(R.string.app_name))
-            .setContentText("Enforcement active")
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
-            .build()
+        try {
+            val n: Notification = NotificationCompat
+                .Builder(this, FlashcardsApp.CHANNEL_PACING)
+                .setSmallIcon(android.R.drawable.ic_lock_lock)
+                .setContentTitle(getString(R.string.app_name))
+                .setContentText("Enforcement active")
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                FOREGROUND_ID, n,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-            )
-        } else {
-            startForeground(FOREGROUND_ID, n)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    FOREGROUND_ID, n,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                )
+            } else {
+                startForeground(FOREGROUND_ID, n)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "startForeground failed — stopping self", e)
+            stopSelf()
+            return Service.START_NOT_STICKY
         }
 
         if (pollerJob == null) {
@@ -389,16 +395,24 @@ class EnforcementService : LifecycleService() {
         )
 
         fun start(ctx: Context) {
-            val intent = Intent(ctx, EnforcementService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                ctx.startForegroundService(intent)
-            } else {
-                ctx.startService(intent)
+            try {
+                val intent = Intent(ctx, EnforcementService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    ctx.startForegroundService(intent)
+                } else {
+                    ctx.startService(intent)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start EnforcementService", e)
             }
         }
 
         fun stop(ctx: Context) {
-            ctx.stopService(Intent(ctx, EnforcementService::class.java))
+            try {
+                ctx.stopService(Intent(ctx, EnforcementService::class.java))
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to stop EnforcementService", e)
+            }
         }
     }
 }

@@ -8,16 +8,53 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import android.util.Log
 import androidx.core.content.getSystemService
 import com.flashcardseverywhere.R
 import dagger.hilt.android.HiltAndroidApp
+import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @HiltAndroidApp
 class FlashcardsApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        installCrashLogger()
         registerNotificationChannels()
+    }
+
+    /**
+     * Writes uncaught exception stack traces to a file so we can diagnose
+     * crashes that happen before logcat is attached.
+     *
+     * File location: /data/data/<pkg>/files/crash.log
+     * Read via: adb shell run-as <pkg> cat files/crash.log
+     */
+    private fun installCrashLogger() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val sw = StringWriter()
+                val pw = PrintWriter(sw)
+                pw.println("=== CRASH at ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())} ===")
+                pw.println("Thread: ${thread.name}")
+                throwable.printStackTrace(pw)
+                pw.println()
+                val crashFile = File(filesDir, "crash.log")
+                // Append (keep last 50KB)
+                val existing = if (crashFile.exists() && crashFile.length() < 50_000) crashFile.readText() else ""
+                crashFile.writeText(existing + sw.toString())
+                Log.e("FlashcardsApp", "CRASH logged to ${crashFile.absolutePath}", throwable)
+            } catch (_: Throwable) {
+                // Don't crash in the crash handler
+            }
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
     }
 
     private fun registerNotificationChannels() {
