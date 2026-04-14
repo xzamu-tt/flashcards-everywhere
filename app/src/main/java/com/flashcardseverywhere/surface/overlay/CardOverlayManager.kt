@@ -149,21 +149,27 @@ class CardOverlayManager @Inject constructor(
             ): WebResourceResponse? {
                 val filename = request.url.lastPathSegment ?: return null
                 if (card.mediaFiles.contains(filename)) {
-                    val mediaUri = Uri.withAppendedPath(
-                        Uri.parse("content://com.ichi2.anki.flashcards/media"), filename
-                    )
-                    val inputStream =
-                        ctx.contentResolver.openInputStream(mediaUri) ?: return null
-                    val mimeType = when {
-                        filename.endsWith(".jpg", true) ||
-                            filename.endsWith(".jpeg", true) -> "image/jpeg"
-                        filename.endsWith(".png", true) -> "image/png"
-                        filename.endsWith(".gif", true) -> "image/gif"
-                        filename.endsWith(".webp", true) -> "image/webp"
-                        filename.endsWith(".svg", true) -> "image/svg+xml"
-                        else -> "application/octet-stream"
+                    try {
+                        val mediaUri = Uri.withAppendedPath(
+                            Uri.parse("content://com.ichi2.anki.flashcards/media"), filename
+                        )
+                        val inputStream =
+                            ctx.contentResolver.openInputStream(mediaUri) ?: return null
+                        val mimeType = when {
+                            filename.endsWith(".jpg", true) ||
+                                filename.endsWith(".jpeg", true) -> "image/jpeg"
+                            filename.endsWith(".png", true) -> "image/png"
+                            filename.endsWith(".gif", true) -> "image/gif"
+                            filename.endsWith(".webp", true) -> "image/webp"
+                            filename.endsWith(".svg", true) -> "image/svg+xml"
+                            else -> "application/octet-stream"
+                        }
+                        return WebResourceResponse(mimeType, "UTF-8", inputStream)
+                    } catch (_: Exception) {
+                        // AnkiDroid's ContentProvider may throw FileNotFoundException
+                        // for media files it can't serve. Fall through to default loading.
+                        return null
                     }
-                    return WebResourceResponse(mimeType, "UTF-8", inputStream)
                 }
                 return null
             }
