@@ -114,7 +114,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- App blocker foreground service (full flavor) -->
+        <!-- App blocker foreground service (full flavor, legacy) -->
         <service
             android:name=".service.blocking.AppBlockerService"
             android:foregroundServiceType="specialUse"
@@ -122,6 +122,16 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Blocks designated apps and requires flashcard review to unlock them."/>
+        </service>
+
+        <!-- Unified enforcement service: budget + app blocking + doom-scroll + grayscale -->
+        <service
+            android:name=".service.enforcement.EnforcementService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Enforces screen-time budget, blocks apps, detects doom-scrolling, and controls grayscale display to combat phone addiction."/>
         </service>
 
         <!-- Dream service (screensaver): flashcards when charging/idle -->

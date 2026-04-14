@@ -11,6 +11,8 @@ import com.flashcardseverywhere.data.anki.AnkiBridge
 import com.flashcardseverywhere.data.anki.DeckRow
 import com.flashcardseverywhere.data.prefs.SettingsRepository
 import com.flashcardseverywhere.service.blocking.AppBlockerService
+import com.flashcardseverywhere.service.enforcement.EnforcementService
+import com.flashcardseverywhere.service.grayscale.GrayscaleManager
 import com.flashcardseverywhere.surface.media.StudyMediaSessionService
 import com.flashcardseverywhere.util.PermissionChecks
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -59,12 +61,25 @@ data class SettingsUiState(
     // ── Aggressive mode ───────────────────────────────────────────────
     val aggressiveMode: Boolean = false,
     val vibrateOnCard: Boolean = true,
+
+    // ── Screen-time budget (M8) ──────────────────────────────────────
+    val budgetEnabled: Boolean = false,
+    val budgetBaseMinPerCard: Int = SettingsRepository.DEFAULT_BUDGET_MIN_PER_CARD,
+
+    // ── Doom-scroll interceptor (M8) ─────────────────────────────────
+    val doomScrollEnabled: Boolean = false,
+    val doomScrollThresholdMin: Int = SettingsRepository.DEFAULT_DOOM_SCROLL_MIN,
+
+    // ── Grayscale enforcement (M8) ───────────────────────────────────
+    val grayscaleEnabled: Boolean = false,
+    val grayscalePermissionGranted: Boolean = false,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val bridge: AnkiBridge,
+    private val grayscaleManager: GrayscaleManager,
     @ApplicationContext private val ctx: Context,
 ) : ViewModel() {
 
@@ -121,9 +136,21 @@ class SettingsViewModel @Inject constructor(
         settings.lastSyncAt, _decks, _deckLoadError, _bridgeProbe, _overlayPermission,
     ) { ls, d, err, bp, op -> MetaBundle(ls, d, err, bp, op) }
 
+    private data class M8Bundle(
+        val budgetEnabled: Boolean, val budgetBaseMin: Int,
+        val doomEnabled: Boolean, val doomThreshold: Int,
+        val grayscaleEnabled: Boolean,
+    )
+    private val m8Bundle = combine(
+        settings.budgetEnabled, settings.budgetBaseMinutesPerCard,
+        settings.doomScrollEnabled, settings.doomScrollThresholdMin,
+        settings.grayscaleEnabled,
+    ) { be, bbm, de, dt, ge -> M8Bundle(be, bbm, de, dt, ge) }
+
     val state: StateFlow<SettingsUiState> = combine(
-        coreBundle, surfaceBundle, escalationBundle, blockBundle, metaBundle,
-    ) { core, surface, esc, block, meta ->
+        coreBundle, surfaceBundle, escalationBundle, blockBundle,
+        combine(metaBundle, m8Bundle) { m, m8 -> m to m8 },
+    ) { core, surface, esc, block, (meta, m8) ->
         SettingsUiState(
             dailyGoal = core.dailyGoal,
             pacingIntervalMin = core.pacingMin,
@@ -151,6 +178,12 @@ class SettingsViewModel @Inject constructor(
             cardsToUnlock = block.cardsToUnlock,
             aggressiveMode = esc.aggressive,
             vibrateOnCard = esc.vibrate,
+            budgetEnabled = m8.budgetEnabled,
+            budgetBaseMinPerCard = m8.budgetBaseMin,
+            doomScrollEnabled = m8.doomEnabled,
+            doomScrollThresholdMin = m8.doomThreshold,
+            grayscaleEnabled = m8.grayscaleEnabled,
+            grayscalePermissionGranted = grayscaleManager.hasWriteSecureSettings(),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -242,6 +275,35 @@ class SettingsViewModel @Inject constructor(
     // ── Aggressive mode ───────────────────────────────────────────────────
     fun setAggressiveMode(on: Boolean) = viewModelScope.launch { settings.setAggressiveMode(on) }
     fun setVibrateOnCard(on: Boolean) = viewModelScope.launch { settings.setVibrateOnCard(on) }
+
+    // ── Screen-time budget (M8) ──────────────────────────────────────────
+    fun setBudgetEnabled(on: Boolean) {
+        viewModelScope.launch {
+            settings.setBudgetEnabled(on)
+            if (on) {
+                settings.resetBudgetDay()
+                EnforcementService.start(ctx)
+            }
+        }
+    }
+    fun setBudgetBaseMinPerCard(min: Int) = viewModelScope.launch { settings.setBudgetBaseMinutesPerCard(min) }
+
+    // ── Doom-scroll interceptor (M8) ─────────────────────────────────────
+    fun setDoomScrollEnabled(on: Boolean) {
+        viewModelScope.launch {
+            settings.setDoomScrollEnabled(on)
+            if (on) EnforcementService.start(ctx)
+        }
+    }
+    fun setDoomScrollThreshold(min: Int) = viewModelScope.launch { settings.setDoomScrollThresholdMin(min) }
+
+    // ── Grayscale enforcement (M8) ───────────────────────────────────────
+    fun setGrayscaleEnabled(on: Boolean) {
+        viewModelScope.launch {
+            settings.setGrayscaleEnabled(on)
+            if (!on) grayscaleManager.disableGrayscale()
+        }
+    }
 
     private fun probeBridge() = BridgeProbe(
         installed = bridge.isAnkiDroidInstalled(),

@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
 import com.flashcardseverywhere.service.blocking.AppBlockerService
+import com.flashcardseverywhere.service.enforcement.EnforcementService
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -17,7 +18,9 @@ class BootReceiver : BroadcastReceiver() {
         ContextCompat.startForegroundService(
             context, Intent(context, PacingService::class.java)
         )
-        // Restart app blocker if it was enabled (it reads its own pref on tick).
+        // Restart app blocker (legacy, for users who haven't migrated).
         AppBlockerService.start(context)
+        // Restart unified enforcement service (budget + doom-scroll + grayscale).
+        EnforcementService.start(context)
     }
 }

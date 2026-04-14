@@ -298,6 +298,103 @@ fun SettingsScreen(
                 }
             }
 
+            // ─── Screen-time budget (M8) ──────────────────────────────
+            item { HairlineDivider() }
+            item {
+                SectionHeader("Screen-time budget")
+                BodyText(
+                    "Your phone is LOCKED by default. Review flashcards to earn screen time. " +
+                    "The ratio tightens as daily screen time rises."
+                )
+                Spacer(Modifier.height(16.dp))
+
+                ToggleRow(
+                    label = "Enable screen-time budget",
+                    description = "Phone locks when budget is exhausted. Review cards to unlock.",
+                    checked = state.budgetEnabled,
+                    onToggle = { on ->
+                        if (on && !state.overlayPermissionGranted) {
+                            vm.openOverlaySettings()
+                        } else {
+                            vm.setBudgetEnabled(on)
+                        }
+                    },
+                )
+                if (state.budgetEnabled) {
+                    Spacer(Modifier.height(12.dp))
+                    BodyText("Base screen time per card:")
+                    Spacer(Modifier.height(8.dp))
+                    Stepper(
+                        value = state.budgetBaseMinPerCard,
+                        suffix = "minutes",
+                        step = 1,
+                        range = 1..10,
+                        onChange = vm::setBudgetBaseMinPerCard,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    BodyText(
+                        "Dynamic ratio: starts at ${state.budgetBaseMinPerCard}min/card, " +
+                        "tightens as screen time rises, loosens as you review more cards."
+                    )
+                }
+            }
+
+            // ─── Doom-scroll interceptor (M8) ────────────────────────────
+            item {
+                SectionHeader("Doom-scroll interceptor")
+                BodyText("Interrupts you with a flashcard after continuous use of a single app.")
+                Spacer(Modifier.height(16.dp))
+
+                ToggleRow(
+                    label = "Enable doom-scroll detection",
+                    description = "Full-screen overlay after ${state.doomScrollThresholdMin}min in one app",
+                    checked = state.doomScrollEnabled,
+                    onToggle = { on ->
+                        if (on && !state.overlayPermissionGranted) {
+                            vm.openOverlaySettings()
+                        } else {
+                            vm.setDoomScrollEnabled(on)
+                        }
+                    },
+                )
+                if (state.doomScrollEnabled) {
+                    Spacer(Modifier.height(12.dp))
+                    BodyText("Trigger after continuous use of:")
+                    Spacer(Modifier.height(8.dp))
+                    Stepper(
+                        value = state.doomScrollThresholdMin,
+                        suffix = "minutes",
+                        step = 1,
+                        range = 1..30,
+                        onChange = vm::setDoomScrollThreshold,
+                    )
+                }
+            }
+
+            // ─── Grayscale enforcement (M8) ──────────────────────────────
+            item {
+                SectionHeader("Grayscale enforcement")
+                BodyText(
+                    "Strips color from your phone when enforcement is active. " +
+                    "Color is dopamine — remove it. Color returns only while reviewing cards."
+                )
+                Spacer(Modifier.height(16.dp))
+
+                ToggleRow(
+                    label = "Enable grayscale",
+                    description = "System-wide grayscale during enforcement lockouts",
+                    checked = state.grayscaleEnabled,
+                    onToggle = vm::setGrayscaleEnabled,
+                )
+                if (state.grayscaleEnabled && !state.grayscalePermissionGranted) {
+                    Spacer(Modifier.height(8.dp))
+                    WarningText(
+                        "Requires ADB setup (one-time):\n" +
+                        "adb shell pm grant ${state.let { "com.flashcardseverywhere" }} android.permission.WRITE_SECURE_SETTINGS"
+                    )
+                }
+            }
+
             // ─── Aggressive mode ───────────────────────────────────────
             item { HairlineDivider() }
             item {

@@ -55,6 +55,31 @@ class SettingsRepository @Inject constructor(
         // ── Aggressive mode ───────────────────────────────────────────
         val AGGRESSIVE_MODE = booleanPreferencesKey("aggressive_mode")
         val VIBRATE_ON_CARD = booleanPreferencesKey("vibrate_on_card")
+
+        // ── Screen-time budget (M8) ──────────────────────────────────
+        val BUDGET_ENABLED = booleanPreferencesKey("budget_enabled")
+        val BUDGET_CARDS_REVIEWED_TODAY = intPreferencesKey("budget_cards_today")
+        val BUDGET_EARNED_MS = longPreferencesKey("budget_earned_ms")
+        val BUDGET_CONSUMED_MS = longPreferencesKey("budget_consumed_ms")
+        val BUDGET_DAY_ANCHOR = longPreferencesKey("budget_day_anchor")
+        val BUDGET_BASE_MINUTES_PER_CARD = intPreferencesKey("budget_base_min_per_card")
+        val BUDGET_LOCKED = booleanPreferencesKey("budget_locked")
+
+        // ── Doom-scroll interceptor (M8) ─────────────────────────────
+        val DOOM_SCROLL_ENABLED = booleanPreferencesKey("doom_scroll_enabled")
+        val DOOM_SCROLL_THRESHOLD_MIN = intPreferencesKey("doom_scroll_threshold_min")
+
+        // ── Grayscale enforcement (M8) ───────────────────────────────
+        val GRAYSCALE_ENABLED = booleanPreferencesKey("grayscale_enabled")
+        val GRAYSCALE_ACTIVE = booleanPreferencesKey("grayscale_active")
+
+        // ── Shame dashboard stats (M8) ───────────────────────────────
+        val STATS_TOTAL_SCREEN_MS_TODAY = longPreferencesKey("stats_screen_ms_today")
+        val STATS_TOTAL_STUDY_MS_TODAY = longPreferencesKey("stats_study_ms_today")
+        val STATS_CARDS_REVIEWED_TODAY = intPreferencesKey("stats_cards_today")
+        val STATS_DAY_ANCHOR = longPreferencesKey("stats_day_anchor")
+        val STATS_LOCKOUTS_TODAY = intPreferencesKey("stats_lockouts_today")
+        val STATS_DOOM_SCROLL_INTERRUPTS_TODAY = intPreferencesKey("stats_doom_interrupts_today")
     }
 
     // ── Original preferences ──────────────────────────────────────────────
@@ -105,6 +130,31 @@ class SettingsRepository @Inject constructor(
     val aggressiveMode: Flow<Boolean> = store.data.map { it[Keys.AGGRESSIVE_MODE] ?: false }
     val vibrateOnCard: Flow<Boolean> = store.data.map { it[Keys.VIBRATE_ON_CARD] ?: true }
 
+    // ── Screen-time budget ───────────────────────────────────────────────
+    val budgetEnabled: Flow<Boolean> = store.data.map { it[Keys.BUDGET_ENABLED] ?: false }
+    val budgetCardsReviewedToday: Flow<Int> = store.data.map { it[Keys.BUDGET_CARDS_REVIEWED_TODAY] ?: 0 }
+    val budgetEarnedMs: Flow<Long> = store.data.map { it[Keys.BUDGET_EARNED_MS] ?: 0L }
+    val budgetConsumedMs: Flow<Long> = store.data.map { it[Keys.BUDGET_CONSUMED_MS] ?: 0L }
+    val budgetDayAnchor: Flow<Long> = store.data.map { it[Keys.BUDGET_DAY_ANCHOR] ?: 0L }
+    val budgetBaseMinutesPerCard: Flow<Int> = store.data.map { it[Keys.BUDGET_BASE_MINUTES_PER_CARD] ?: DEFAULT_BUDGET_MIN_PER_CARD }
+    val budgetLocked: Flow<Boolean> = store.data.map { it[Keys.BUDGET_LOCKED] ?: true }
+
+    // ── Doom-scroll interceptor ──────────────────────────────────────────
+    val doomScrollEnabled: Flow<Boolean> = store.data.map { it[Keys.DOOM_SCROLL_ENABLED] ?: false }
+    val doomScrollThresholdMin: Flow<Int> = store.data.map { it[Keys.DOOM_SCROLL_THRESHOLD_MIN] ?: DEFAULT_DOOM_SCROLL_MIN }
+
+    // ── Grayscale enforcement ────────────────────────────────────────────
+    val grayscaleEnabled: Flow<Boolean> = store.data.map { it[Keys.GRAYSCALE_ENABLED] ?: false }
+    val grayscaleActive: Flow<Boolean> = store.data.map { it[Keys.GRAYSCALE_ACTIVE] ?: false }
+
+    // ── Shame dashboard stats ────────────────────────────────────────────
+    val statsScreenMsToday: Flow<Long> = store.data.map { it[Keys.STATS_TOTAL_SCREEN_MS_TODAY] ?: 0L }
+    val statsStudyMsToday: Flow<Long> = store.data.map { it[Keys.STATS_TOTAL_STUDY_MS_TODAY] ?: 0L }
+    val statsCardsReviewedToday: Flow<Int> = store.data.map { it[Keys.STATS_CARDS_REVIEWED_TODAY] ?: 0 }
+    val statsDayAnchor: Flow<Long> = store.data.map { it[Keys.STATS_DAY_ANCHOR] ?: 0L }
+    val statsLockoutsToday: Flow<Int> = store.data.map { it[Keys.STATS_LOCKOUTS_TODAY] ?: 0 }
+    val statsDoomScrollInterruptsToday: Flow<Int> = store.data.map { it[Keys.STATS_DOOM_SCROLL_INTERRUPTS_TODAY] ?: 0 }
+
     // ── Setters ───────────────────────────────────────────────────────────
     suspend fun setDailyGoal(value: Int) = store.edit { it[Keys.DAILY_GOAL] = value }
     suspend fun setPacingInterval(min: Int) = store.edit { it[Keys.PACING_INTERVAL_MIN] = min }
@@ -142,6 +192,68 @@ class SettingsRepository @Inject constructor(
     suspend fun setAggressiveMode(on: Boolean) = store.edit { it[Keys.AGGRESSIVE_MODE] = on }
     suspend fun setVibrateOnCard(on: Boolean) = store.edit { it[Keys.VIBRATE_ON_CARD] = on }
 
+    // ── Budget setters ───────────────────────────────────────────────────
+    suspend fun setBudgetEnabled(on: Boolean) = store.edit { it[Keys.BUDGET_ENABLED] = on }
+    suspend fun setBudgetBaseMinutesPerCard(min: Int) = store.edit { it[Keys.BUDGET_BASE_MINUTES_PER_CARD] = min.coerceIn(1, 10) }
+    suspend fun setBudgetLocked(locked: Boolean) = store.edit { it[Keys.BUDGET_LOCKED] = locked }
+    suspend fun setBudgetEarnedMs(ms: Long) = store.edit { it[Keys.BUDGET_EARNED_MS] = ms }
+    suspend fun setBudgetConsumedMs(ms: Long) = store.edit { it[Keys.BUDGET_CONSUMED_MS] = ms }
+
+    /**
+     * Credits one card review to the budget. Called from GradeReceiver.
+     * Increments cards-reviewed-today and adds earned screen time based
+     * on the dynamic ratio.
+     */
+    suspend fun creditBudgetCard(earnedMs: Long) = store.edit { prefs ->
+        val cards = (prefs[Keys.BUDGET_CARDS_REVIEWED_TODAY] ?: 0) + 1
+        prefs[Keys.BUDGET_CARDS_REVIEWED_TODAY] = cards
+        prefs[Keys.BUDGET_EARNED_MS] = (prefs[Keys.BUDGET_EARNED_MS] ?: 0L) + earnedMs
+        // Unlock the phone when a card is credited
+        prefs[Keys.BUDGET_LOCKED] = false
+    }
+
+    /** Resets budget counters for a new day. */
+    suspend fun resetBudgetDay() = store.edit { prefs ->
+        prefs[Keys.BUDGET_CARDS_REVIEWED_TODAY] = 0
+        prefs[Keys.BUDGET_EARNED_MS] = 0L
+        prefs[Keys.BUDGET_CONSUMED_MS] = 0L
+        prefs[Keys.BUDGET_DAY_ANCHOR] = todayAnchorMs()
+        prefs[Keys.BUDGET_LOCKED] = true
+    }
+
+    // ── Doom-scroll setters ──────────────────────────────────────────────
+    suspend fun setDoomScrollEnabled(on: Boolean) = store.edit { it[Keys.DOOM_SCROLL_ENABLED] = on }
+    suspend fun setDoomScrollThresholdMin(min: Int) = store.edit { it[Keys.DOOM_SCROLL_THRESHOLD_MIN] = min.coerceIn(1, 30) }
+
+    // ── Grayscale setters ────────────────────────────────────────────────
+    suspend fun setGrayscaleEnabled(on: Boolean) = store.edit { it[Keys.GRAYSCALE_ENABLED] = on }
+    suspend fun setGrayscaleActive(active: Boolean) = store.edit { it[Keys.GRAYSCALE_ACTIVE] = active }
+
+    // ── Stats setters ────────────────────────────────────────────────────
+    suspend fun incrementStatsCardsReviewed() = store.edit { prefs ->
+        prefs[Keys.STATS_CARDS_REVIEWED_TODAY] = (prefs[Keys.STATS_CARDS_REVIEWED_TODAY] ?: 0) + 1
+    }
+    suspend fun addStatsStudyMs(ms: Long) = store.edit { prefs ->
+        prefs[Keys.STATS_TOTAL_STUDY_MS_TODAY] = (prefs[Keys.STATS_TOTAL_STUDY_MS_TODAY] ?: 0L) + ms
+    }
+    suspend fun updateStatsScreenMs(ms: Long) = store.edit { prefs ->
+        prefs[Keys.STATS_TOTAL_SCREEN_MS_TODAY] = ms
+    }
+    suspend fun incrementStatsLockouts() = store.edit { prefs ->
+        prefs[Keys.STATS_LOCKOUTS_TODAY] = (prefs[Keys.STATS_LOCKOUTS_TODAY] ?: 0) + 1
+    }
+    suspend fun incrementStatsDoomScrollInterrupts() = store.edit { prefs ->
+        prefs[Keys.STATS_DOOM_SCROLL_INTERRUPTS_TODAY] = (prefs[Keys.STATS_DOOM_SCROLL_INTERRUPTS_TODAY] ?: 0) + 1
+    }
+    suspend fun resetStatsDay() = store.edit { prefs ->
+        prefs[Keys.STATS_TOTAL_SCREEN_MS_TODAY] = 0L
+        prefs[Keys.STATS_TOTAL_STUDY_MS_TODAY] = 0L
+        prefs[Keys.STATS_CARDS_REVIEWED_TODAY] = 0
+        prefs[Keys.STATS_DAY_ANCHOR] = todayAnchorMs()
+        prefs[Keys.STATS_LOCKOUTS_TODAY] = 0
+        prefs[Keys.STATS_DOOM_SCROLL_INTERRUPTS_TODAY] = 0
+    }
+
     companion object {
         const val DEFAULT_DAILY_GOAL = 200
         const val DEFAULT_PACING_MIN = 5
@@ -152,6 +264,21 @@ class SettingsRepository @Inject constructor(
         const val DEFAULT_CARDS_TO_UNLOCK = 3
         /** Sentinel meaning "the user has not picked a deck yet". */
         const val NO_DECK = -1L
+
+        // Budget defaults
+        const val DEFAULT_BUDGET_MIN_PER_CARD = 2 // base: 1 card = 2 min screen time
+        // Doom-scroll defaults
+        const val DEFAULT_DOOM_SCROLL_MIN = 5 // 5 continuous minutes triggers interrupt
+
+        /** Midnight of today in epoch millis, used to detect day rollover. */
+        fun todayAnchorMs(): Long {
+            val cal = java.util.Calendar.getInstance()
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            cal.set(java.util.Calendar.MINUTE, 0)
+            cal.set(java.util.Calendar.SECOND, 0)
+            cal.set(java.util.Calendar.MILLISECOND, 0)
+            return cal.timeInMillis
+        }
 
         val POPULAR_DISTRACTION_APPS = mapOf(
             "com.instagram.android" to "Instagram",

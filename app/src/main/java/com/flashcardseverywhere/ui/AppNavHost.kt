@@ -16,6 +16,7 @@ package com.flashcardseverywhere.ui
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material3.Icon
@@ -38,6 +39,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.flashcardseverywhere.ui.dashboard.DashboardScreen
 import com.flashcardseverywhere.ui.onboarding.OnboardingRoute
 import com.flashcardseverywhere.ui.reviewer.ReviewerRoute
 import com.flashcardseverywhere.ui.settings.SettingsScreen
@@ -45,6 +47,7 @@ import com.flashcardseverywhere.ui.settings.SettingsScreen
 private object Routes {
     const val ONBOARDING = "onboarding"
     const val REVIEW = "review"
+    const val DASHBOARD = "dashboard"
     const val SETTINGS = "settings"
 }
 
@@ -56,6 +59,7 @@ private data class BottomDest(
 
 private val bottomDestinations = listOf(
     BottomDest(Routes.REVIEW, "Review", Icons.Outlined.Style),
+    BottomDest(Routes.DASHBOARD, "Stats", Icons.Outlined.BarChart),
     BottomDest(Routes.SETTINGS, "Settings", Icons.Outlined.Settings),
 )
 
@@ -91,6 +95,11 @@ fun AppNavHost(rootVm: AppRootViewModel = hiltViewModel()) {
                         }
                     },
                 )
+            }
+        }
+        composable(Routes.DASHBOARD) {
+            MainScaffold(nav = nav, currentRoute = Routes.DASHBOARD) {
+                DashboardScreen()
             }
         }
         composable(Routes.SETTINGS) {

@@ -10,10 +10,12 @@ import android.content.Intent
 import com.flashcardseverywhere.data.anki.AnkiBridge
 import com.flashcardseverywhere.data.anki.Ease
 import com.flashcardseverywhere.data.prefs.SettingsRepository
+import com.flashcardseverywhere.service.budget.ScreenTimeBudgetEngine
 import com.flashcardseverywhere.surface.widget.WidgetUpdater
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,6 +30,7 @@ class GradeReceiver : BroadcastReceiver() {
     @Inject lateinit var bridge: AnkiBridge
     @Inject lateinit var widgetUpdater: WidgetUpdater
     @Inject lateinit var settings: SettingsRepository
+    @Inject lateinit var budgetEngine: ScreenTimeBudgetEngine
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_GRADE) return
@@ -42,6 +45,16 @@ class GradeReceiver : BroadcastReceiver() {
                 val ease = Ease.values().first { it.value == easeInt }
                 bridge.answer(noteId, cardOrd, ease, timeTakenMs = 0L)
                 settings.markCardGradedNow() // reset escalation FSM
+
+                // Credit screen-time budget on every grade (from any surface).
+                if (settings.budgetEnabled.first()) {
+                    val earnedMs = budgetEngine.calculateEarnedMsPerCard()
+                    settings.creditBudgetCard(earnedMs)
+                }
+
+                // Track stats
+                settings.incrementStatsCardsReviewed()
+
                 widgetUpdater.updateAll()
             } finally {
                 pending.finish()
