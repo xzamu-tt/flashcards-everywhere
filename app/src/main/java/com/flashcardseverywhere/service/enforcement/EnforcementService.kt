@@ -97,6 +97,10 @@ class EnforcementService : LifecycleService() {
 
         if (pollerJob == null) {
             pollerJob = lifecycleScope.launch {
+                // Wait for DataStore writes from the ViewModel to commit
+                // before the first tick. Without this, the first tick can
+                // read stale/default values (e.g. budgetEnabled=false).
+                delay(STARTUP_DELAY_MS)
                 while (true) {
                     runCatching { tick() }
                         .onFailure { Log.w(TAG, "Enforcement tick error", it) }
@@ -365,6 +369,8 @@ class EnforcementService : LifecycleService() {
         private const val TAG = "EnforcementService"
         private const val FOREGROUND_ID = 2003
         private const val POLL_INTERVAL_MS = 1_000L
+        /** Wait for DataStore commits before the first tick. */
+        private const val STARTUP_DELAY_MS = 3_000L
         /** Minimum ms between overlay dismissal and the next lockout. Prevents spam. */
         private const val OVERLAY_COOLDOWN_MS = 5_000L
 

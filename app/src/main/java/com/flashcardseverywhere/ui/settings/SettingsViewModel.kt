@@ -278,6 +278,16 @@ class SettingsViewModel @Inject constructor(
 
     // ── Screen-time budget (M8) ──────────────────────────────────────────
     fun setBudgetEnabled(on: Boolean) {
+        // CRITICAL: start the foreground service IMMEDIATELY, on the main
+        // thread, BEFORE any suspend calls. On Android 12+ the app loses its
+        // foreground exemption during DataStore I/O suspensions, and a
+        // subsequent startForegroundService() throws
+        // ForegroundServiceStartNotAllowedException.
+        if (on) {
+            try { EnforcementService.start(ctx) } catch (e: Exception) {
+                android.util.Log.e("SettingsVM", "Failed to start EnforcementService", e)
+            }
+        }
         viewModelScope.launch {
             settings.setBudgetEnabled(on)
             if (on) {
@@ -286,7 +296,9 @@ class SettingsViewModel @Inject constructor(
                 settings.resetBudgetDay()
                 // Grant 5 min initial budget so the user can finish configuring.
                 settings.creditBudgetCard(INITIAL_BUDGET_GRACE_MS)
-                EnforcementService.start(ctx)
+                // Stop legacy AppBlockerService — EnforcementService handles
+                // app blocking too. Running both causes overlay conflicts.
+                AppBlockerService.stop(ctx)
             } else {
                 EnforcementService.stop(ctx)
             }
@@ -296,10 +308,13 @@ class SettingsViewModel @Inject constructor(
 
     // ── Doom-scroll interceptor (M8) ─────────────────────────────────────
     fun setDoomScrollEnabled(on: Boolean) {
-        viewModelScope.launch {
-            settings.setDoomScrollEnabled(on)
-            if (on) EnforcementService.start(ctx)
+        // Same pattern: start service BEFORE suspend calls.
+        if (on) {
+            try { EnforcementService.start(ctx) } catch (e: Exception) {
+                android.util.Log.e("SettingsVM", "Failed to start EnforcementService", e)
+            }
         }
+        viewModelScope.launch { settings.setDoomScrollEnabled(on) }
     }
     fun setDoomScrollThreshold(min: Int) = viewModelScope.launch { settings.setDoomScrollThresholdMin(min) }
 

@@ -137,7 +137,7 @@ class SettingsRepository @Inject constructor(
     val budgetConsumedMs: Flow<Long> = store.data.map { it[Keys.BUDGET_CONSUMED_MS] ?: 0L }
     val budgetDayAnchor: Flow<Long> = store.data.map { it[Keys.BUDGET_DAY_ANCHOR] ?: 0L }
     val budgetBaseMinutesPerCard: Flow<Int> = store.data.map { it[Keys.BUDGET_BASE_MINUTES_PER_CARD] ?: DEFAULT_BUDGET_MIN_PER_CARD }
-    val budgetLocked: Flow<Boolean> = store.data.map { it[Keys.BUDGET_LOCKED] ?: true }
+    val budgetLocked: Flow<Boolean> = store.data.map { it[Keys.BUDGET_LOCKED] ?: false }
 
     // ── Doom-scroll interceptor ──────────────────────────────────────────
     val doomScrollEnabled: Flow<Boolean> = store.data.map { it[Keys.DOOM_SCROLL_ENABLED] ?: false }

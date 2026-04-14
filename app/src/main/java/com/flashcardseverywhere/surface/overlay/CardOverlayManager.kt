@@ -48,69 +48,73 @@ class CardOverlayManager @Inject constructor(
     @ApplicationContext private val ctx: Context,
 ) {
     private val wm: WindowManager? get() = ctx.getSystemService()
-    private var overlayView: View? = null
+    @Volatile private var overlayView: View? = null
+    private val lock = Any()
 
     fun showCard(card: DueCard, onGraded: (() -> Unit)? = null) {
         if (!android.provider.Settings.canDrawOverlays(ctx)) return
-        dismiss()
+        synchronized(lock) {
+            dismiss()
 
-        val layout = buildOverlayLayout(card, onGraded)
+            val layout = buildOverlayLayout(card, onGraded)
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
-            // No FLAG_NOT_FOCUSABLE, no FLAG_NOT_TOUCH_MODAL — overlay captures
-            // all touch and key events so the user must grade the card.
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.CENTER
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                else
+                    @Suppress("DEPRECATION")
+                    WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                    or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                    or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
+                PixelFormat.TRANSLUCENT,
+            ).apply {
+                gravity = Gravity.CENTER
+            }
+
+            overlayView = layout
+            runCatching { wm?.addView(layout, params) }
+            vibrate()
         }
-
-        overlayView = layout
-        wm?.addView(layout, params)
-        vibrate()
     }
 
     fun showBlocker(message: String, cardsRemaining: Int, onReviewCard: () -> Unit) {
         if (!android.provider.Settings.canDrawOverlays(ctx)) return
-        dismiss()
+        synchronized(lock) {
+            dismiss()
 
-        val layout = buildBlockerLayout(message, cardsRemaining, onReviewCard)
+            val layout = buildBlockerLayout(message, cardsRemaining, onReviewCard)
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
-            // No FLAG_NOT_FOCUSABLE, no FLAG_NOT_TOUCH_MODAL — fully blocking.
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
-            PixelFormat.OPAQUE,
-        ).apply {
-            gravity = Gravity.CENTER
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                else
+                    @Suppress("DEPRECATION")
+                    WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                    or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                    or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
+                PixelFormat.OPAQUE,
+            ).apply {
+                gravity = Gravity.CENTER
+            }
+
+            overlayView = layout
+            runCatching { wm?.addView(layout, params) }
+            vibrate()
         }
-
-        overlayView = layout
-        wm?.addView(layout, params)
-        vibrate()
     }
 
     fun dismiss() {
-        overlayView?.let {
-            runCatching { wm?.removeView(it) }
-            overlayView = null
+        synchronized(lock) {
+            overlayView?.let {
+                runCatching { wm?.removeView(it) }
+                overlayView = null
+            }
         }
     }
 
